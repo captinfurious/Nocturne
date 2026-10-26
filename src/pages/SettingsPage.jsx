@@ -13,12 +13,12 @@ import {
   X,
 } from 'lucide-react'
 import { api } from '../api.js'
-import { useNova } from '../app-context.js'
+import { useNocturne } from '../app-context.js'
 import { usePageTitle } from '../hooks/usePageTitle.js'
 
 export function SettingsPage() {
   usePageTitle('Settings')
-  const { health, reloadHealth } = useNova()
+  const { health, reloadHealth } = useNocturne()
   const [busy, setBusy] = useState(null)
   const [notice, setNotice] = useState(null)
   const [problem, setProblem] = useState(null)
@@ -52,7 +52,7 @@ export function SettingsPage() {
   const rediscover = () => run('rediscover', async () => {
     const result = await api.rediscover()
     return result
-  }, 'Server discovery finished. NOVA is using the fastest available address.')
+  }, 'Server discovery finished. Nocturne is using the fastest available address.')
 
   const refreshLibrary = () => run('refresh', async () => {
     await api.home(undefined, { refresh: true })
@@ -74,7 +74,7 @@ export function SettingsPage() {
         <p className="eyebrow">Settings</p>
         <h1>Your cinema, behind the curtain.</h1>
         <p className="page-header__lede">
-          NOVA is the interface. Plex stays responsible for your files, playback,
+          Nocturne is the interface. Plex stays responsible for your files, playback,
           and watch history. Manage that connection here.
         </p>
       </header>
@@ -184,8 +184,8 @@ export function SettingsPage() {
           </p>
           <ul className="settings-list">
             <li>Resume progress is read from Plex.</li>
-            <li>Watching in NOVA still updates Plex history.</li>
-            <li>A native NOVA player can replace this handoff later.</li>
+            <li>Watching in Nocturne still updates Plex history.</li>
+            <li>A native Nocturne player can replace this handoff later.</li>
           </ul>
           <a
             className="small-link"
@@ -207,13 +207,13 @@ export function SettingsPage() {
             </div>
           </div>
           <p className="settings-card__copy">
-            NOVA runs two local processes: the React interface and a small API on
+            Nocturne runs two local processes: the React interface and a small API on
             <code>127.0.0.1</code>. The API holds your Plex token in
             <code>data/config.json</code> and proxies artwork and metadata. Your token
             is never sent to the browser.
           </p>
           <p className="settings-card__footnote">
-            Keep NOVA’s backend bound to <code>127.0.0.1</code>. Do not expose it to
+            Keep Nocturne’s backend bound to <code>127.0.0.1</code>. Do not expose it to
             the internet without adding proper authentication.
           </p>
         </section>
@@ -228,7 +228,7 @@ export function SettingsPage() {
           </div>
           <ol className="settings-steps">
             <li>Start Plex Media Server.</li>
-            <li>Open PowerShell in the NOVA folder.</li>
+            <li>Open PowerShell in the Nocturne folder.</li>
             <li>Run <code>npm start</code>.</li>
             <li>Open <code>http://127.0.0.1:8787</code>.</li>
           </ol>
@@ -249,7 +249,7 @@ export function SettingsPage() {
         </div>
         {confirmDisconnect ? (
           <div className="settings-confirm">
-            <p>Disconnect NOVA from Plex?</p>
+            <p>Disconnect Nocturne from Plex?</p>
             <div>
               <button
                 type="button"
@@ -284,7 +284,7 @@ export function SettingsPage() {
 
       <footer className="settings-footer">
         <span className="settings-footer__mark">✦</span>
-        <p>NOVA 1.0 · A private cinema for the library you already own.</p>
+        <p>Nocturne 1.0 · A private cinema for the library you already own.</p>
         <span>Built for Plex</span>
       </footer>
     </div>

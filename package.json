@@ -1,7 +1,7 @@
 {
-  "name": "nova-media",
+  "name": "nocturne",
   "version": "1.0.0",
-  "description": "NOVA — a custom streaming experience for an existing Plex Media Server.",
+  "description": "Nocturne — a custom streaming experience for an existing Plex Media Server.",
   "private": true,
   "type": "module",
   "engines": {

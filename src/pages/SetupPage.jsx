@@ -15,7 +15,7 @@ import {
   WifiOff,
 } from 'lucide-react'
 import { api } from '../api.js'
-import { NovaBrand, NovaMark } from '../components/Logo.jsx'
+import { NocturneBrand, NocturneMark } from '../components/Logo.jsx'
 import { usePageTitle } from '../hooks/usePageTitle.js'
 
 const TOKEN_HELP_URL = 'https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/'
@@ -189,7 +189,7 @@ export function SetupPage({ onConnected, reason = null }) {
         </div>
 
         <div className="setup__stage-top">
-          <NovaBrand tagline={false} />
+          <NocturneBrand tagline={false} />
           <span className="setup__edition">For Plex</span>
         </div>
 
@@ -204,7 +204,7 @@ export function SetupPage({ onConnected, reason = null }) {
             <span>One marquee.</span>
           </h1>
           <p className="setup__lede">
-            NOVA turns the Plex library you already own into a private, cinematic
+            Nocturne turns the Plex library you already own into a private, cinematic
             streaming room — with its own look, its own rhythm, and none of your
             files ever copied.
           </p>
@@ -225,7 +225,7 @@ export function SetupPage({ onConnected, reason = null }) {
       <section className="setup__panel" aria-labelledby="setup-card-title">
         <div className="setup__card">
           <div className="setup__card-head">
-            <NovaMark size={40} />
+            <NocturneMark size={40} />
             <div>
               <p className="eyebrow">One-time setup</p>
               <h2 id="setup-card-title">Connect your Plex account</h2>
@@ -239,7 +239,7 @@ export function SetupPage({ onConnected, reason = null }) {
               <CircleAlert size={16} />
               <div>
                 <strong>The previous Plex connection expired.</strong>
-                <p>{reason} Sign in again to reconnect NOVA.</p>
+                <p>{reason} Sign in again to reconnect Nocturne.</p>
               </div>
             </div>
           ) : null}
@@ -249,7 +249,7 @@ export function SetupPage({ onConnected, reason = null }) {
               <LoaderCircle size={26} className="spin" />
               <div>
                 <strong>Preparing a secure sign-in code</strong>
-                <p>NOVA is talking to plex.tv. This takes a moment.</p>
+                <p>Nocturne is talking to plex.tv. This takes a moment.</p>
               </div>
             </div>
           ) : null}
@@ -257,7 +257,7 @@ export function SetupPage({ onConnected, reason = null }) {
           {showSignIn ? (
             <div className="setup-state">
               <p className="setup-state__copy">
-                Sign in on Plex’s own website. NOVA never sees your Plex password.
+                Sign in on Plex’s own website. Nocturne never sees your Plex password.
               </p>
 
               <a
@@ -330,7 +330,7 @@ export function SetupPage({ onConnected, reason = null }) {
               <div className="alert alert--error">
                 <CircleAlert size={18} />
                 <div>
-                  <strong>{error?.message || 'NOVA could not connect to Plex.'}</strong>
+                  <strong>{error?.message || 'Nocturne could not connect to Plex.'}</strong>
                   {error?.detail ? <p>{error.detail}</p> : null}
                 </div>
               </div>
@@ -434,7 +434,7 @@ export function SetupPage({ onConnected, reason = null }) {
             <ShieldCheck size={16} />
             <p>
               Your Plex token is stored only on this PC, never in the browser or
-              in NOVA’s code. The local NOVA server talks to Plex for you.
+              in Nocturne’s code. The local Nocturne server talks to Plex for you.
             </p>
           </div>
         </div>

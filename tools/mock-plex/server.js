@@ -15,7 +15,7 @@ import { renderArt } from './art.js'
 
 const PORT = Number(process.env.MOCK_PLEX_PORT) || 32499
 const TOKEN = 'mock-plex-token-1234567890'
-const MACHINE_ID = 'mock-machine-nova-001'
+const MACHINE_ID = 'mock-machine-nocturne-001'
 const app = express()
 const pins = new Map()
 let nextPin = 4000
@@ -74,7 +74,7 @@ app.get('/', (req, res) => {
   res.json({
     MediaContainer: {
       size: 0,
-      friendlyName: 'NOVA Test Plex',
+      friendlyName: 'Nocturne Test Plex',
       machineIdentifier: MACHINE_ID,
       version: '1.41.0-mock+build',
       platform: 'Linux',
@@ -236,7 +236,7 @@ app.get('/tv/api/v2/pins/:id', (req, res) => {
 app.get('/tv/api/v2/resources', authorize, (req, res) => {
   res.json([
     {
-      name: 'NOVA Test Plex',
+      name: 'Nocturne Test Plex',
       product: 'Plex Media Server',
       productVersion: '1.41.0-mock',
       platform: 'Linux',
@@ -258,7 +258,7 @@ app.get('/tv/api/v2/resources', authorize, (req, res) => {
 })
 
 app.get('/tv/api/v2/user', authorize, (req, res) => {
-  res.json({ username: 'nova_tester', title: 'Nova Tester' })
+  res.json({ username: 'nocturne_tester', title: 'Nocturne Tester' })
 })
 
 app.use((req, res) => {

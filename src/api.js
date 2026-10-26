@@ -1,7 +1,7 @@
-export class NovaError extends Error {
-  constructor(message, { code = 'NOVA_ERROR', detail = null, attempts = null, status = 0 } = {}) {
+export class NocturneError extends Error {
+  constructor(message, { code = 'NOCTURNE_ERROR', detail = null, attempts = null, status = 0 } = {}) {
     super(message)
-    this.name = 'NovaError'
+    this.name = 'NocturneError'
     this.code = code
     this.detail = detail
     this.attempts = attempts
@@ -20,9 +20,9 @@ async function request(path, { signal, method = 'GET', body } = {}) {
     })
   } catch (error) {
     if (error.name === 'AbortError') throw error
-    throw new NovaError(
-      'NOVA could not reach its local server. Make sure the NOVA server is running.',
-      { code: 'NOVA_SERVER_UNREACHABLE', detail: error.message },
+    throw new NocturneError(
+      'Nocturne could not reach its local server. Make sure the Nocturne server is running.',
+      { code: 'NOCTURNE_SERVER_UNREACHABLE', detail: error.message },
     )
   }
 
@@ -38,8 +38,8 @@ async function request(path, { signal, method = 'GET', body } = {}) {
 
   if (!response.ok) {
     const error = payload?.error || {}
-    throw new NovaError(error.message || `NOVA request failed (HTTP ${response.status}).`, {
-      code: error.code || 'NOVA_REQUEST_FAILED',
+    throw new NocturneError(error.message || `Nocturne request failed (HTTP ${response.status}).`, {
+      code: error.code || 'NOCTURNE_REQUEST_FAILED',
       detail: error.detail || null,
       attempts: error.attempts || null,
       status: response.status,

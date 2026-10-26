@@ -1,5 +1,5 @@
 const TV_BASE = (process.env.PLEX_TV_BASE_URL || 'https://plex.tv').replace(/\/+$/, '')
-const PRODUCT = 'NOVA'
+const PRODUCT = 'Nocturne'
 const VERSION = '1.0.0'
 
 export class PlexError extends Error {
@@ -52,7 +52,7 @@ async function plexTvRequest(pathname, { method = 'GET', clientIdentifier, token
     })
   } catch {
     throw new PlexError(
-      'NOVA could not reach plex.tv. Check your internet connection and try again.',
+      'Nocturne could not reach plex.tv. Check your internet connection and try again.',
       {
         status: 502,
         code: 'PLEX_TV_UNREACHABLE',
@@ -260,11 +260,11 @@ export async function discoverPlexServer({
   const tokenRejected = resourcesError?.status === 401
   const baseMessage = tokenRejected
     ? 'Plex rejected that token.'
-    : 'NOVA found your Plex account, but could not reach a Plex Media Server.'
+    : 'Nocturne found your Plex account, but could not reach a Plex Media Server.'
   const guidance = tokenRejected
     ? 'Copy the full X-Plex-Token from Plex Web and try again. Tokens are long strings, not your Plex password.'
     : resourcesError
-      ? 'NOVA could not read your Plex server list from plex.tv. Check your internet connection, or enter your server address manually.'
+      ? 'Nocturne could not read your Plex server list from plex.tv. Check your internet connection, or enter your server address manually.'
       : 'Make sure Plex Media Server is running and reachable at http://127.0.0.1:32400, then try again.'
 
   const error = new PlexError(baseMessage, {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Film, House, RefreshCw, Search, Tv, WifiOff } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { useNova } from '../app-context.js'
+import { useNocturne } from '../app-context.js'
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
 
@@ -18,7 +18,7 @@ function mobileNavClass({ isActive }) {
 }
 
 export function AppShell() {
-  const { health, libraries, reloadHealth } = useNova()
+  const { health, libraries, reloadHealth } = useNocturne()
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
   const movies = libraries.find((library) => library.type === 'movie')
@@ -70,7 +70,7 @@ export function AppShell() {
           <WifiOff size={17} aria-hidden="true" />
           <div>
             <strong>Plex is offline</strong>
-            <span>{health.connectionError || 'NOVA will reconnect when your server is available.'}</span>
+            <span>{health.connectionError || 'Nocturne will reconnect when your server is available.'}</span>
           </div>
           <button type="button" className="button button--small button--secondary" onClick={reloadHealth}>
             <RefreshCw size={14} />

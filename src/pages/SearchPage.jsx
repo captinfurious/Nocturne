@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Film, Search, SearchX, Tv, X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useNova } from '../app-context.js'
+import { useNocturne } from '../app-context.js'
 import { api } from '../api.js'
 import { MediaCard } from '../components/MediaCard.jsx'
 import { GridSkeleton } from '../components/Skeleton.jsx'
@@ -28,7 +28,7 @@ function ResultGroup({ title, items, icon: Icon }) {
 }
 
 export function SearchPage() {
-  const { libraries } = useNova()
+  const { libraries } = useNocturne()
   const [searchParams, setSearchParams] = useSearchParams()
   const q = (searchParams.get('q') || '').trim()
   const [term, setTerm] = useState(q)
@@ -162,7 +162,7 @@ export function SearchPage() {
           icon={SearchX}
           eyebrow="Nothing found"
           title={`No match for “${q}”`}
-          message="Try a shorter title, check the spelling, or browse a library from the sidebar. NOVA searches only what is already in your Plex library."
+          message="Try a shorter title, check the spelling, or browse a library from the sidebar. Nocturne searches only what is already in your Plex library."
           action={
             <button type="button" className="button button--secondary" onClick={clear}>
               Clear search

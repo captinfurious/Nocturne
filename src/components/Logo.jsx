@@ -1,10 +1,10 @@
 import { useId } from 'react'
 
-export function NovaMark({ size = 30, className = '' }) {
+export function NocturneMark({ size = 30, className = '' }) {
   const gradientId = useId().replace(/:/g, '')
   return (
     <svg
-      className={`nova-mark ${className}`.trim()}
+      className={`nocturne-mark ${className}`.trim()}
       width={size}
       height={size}
       viewBox="0 0 64 64"
@@ -28,12 +28,12 @@ export function NovaMark({ size = 30, className = '' }) {
   )
 }
 
-export function NovaBrand({ tagline = true, className = '' }) {
+export function NocturneBrand({ tagline = true, className = '' }) {
   return (
     <div className={`brand ${className}`.trim()}>
       <div className="brand__lockup">
-        <NovaMark size={30} />
-        <span className="brand__word">NOVA</span>
+        <NocturneMark size={30} />
+        <span className="brand__word">NOCTURNE</span>
       </div>
       {tagline ? <span className="brand__tagline">Private cinema</span> : null}
     </div>

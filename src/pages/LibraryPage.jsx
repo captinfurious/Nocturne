@@ -160,7 +160,7 @@ export function LibraryPage() {
           icon={Library}
           eyebrow="Nothing on this shelf"
           title={`This ${isShow ? 'series' : 'film'} library is empty`}
-          message="Add media in Plex and run a library scan. NOVA will pick it up on the next refresh."
+          message="Add media in Plex and run a library scan. Nocturne will pick it up on the next refresh."
         />
       )}
     </div>

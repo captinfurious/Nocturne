@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Menu, Search } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useNova } from '../app-context.js'
+import { useNocturne } from '../app-context.js'
 import { initials } from '../lib/format.js'
-import { NovaMark } from './Logo.jsx'
+import { NocturneMark } from './Logo.jsx'
 
 export function Topbar({ onMenu }) {
-  const { health } = useNova()
+  const { health } = useNocturne()
   const navigate = useNavigate()
   const location = useLocation()
   const [scrolled, setScrolled] = useState(false)
   const isSearch = location.pathname === '/search'
-  const accountName = health?.account?.username || health?.account?.title || 'NOVA'
+  const accountName = health?.account?.username || health?.account?.title || 'Nocturne'
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 14)
@@ -50,9 +50,9 @@ export function Topbar({ onMenu }) {
         >
           <Menu size={21} />
         </button>
-        <Link to="/" className="topbar__logo-link" aria-label="NOVA home">
-          <NovaMark size={25} />
-          <span>NOVA</span>
+        <Link to="/" className="topbar__logo-link" aria-label="Nocturne home">
+          <NocturneMark size={25} />
+          <span>NOCTURNE</span>
         </Link>
       </div>
 

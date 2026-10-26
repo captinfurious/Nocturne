@@ -209,7 +209,7 @@ export function TitlePage() {
                 ) : null}
               </div>
               <p className="title-playback-note">
-                Playback continues in Plex Web. NOVA remembers progress through Plex.
+                Playback continues in Plex Web. Nocturne remembers progress through Plex.
               </p>
 
               <p className="title-summary">{item.summary || 'No description is available for this title yet.'}</p>

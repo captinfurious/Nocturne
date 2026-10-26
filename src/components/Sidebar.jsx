@@ -1,22 +1,22 @@
 import { Film, House, Search, Settings2, Tv } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
-import { useNova } from '../app-context.js'
-import { NovaBrand } from './Logo.jsx'
+import { useNocturne } from '../app-context.js'
+import { NocturneBrand } from './Logo.jsx'
 
 function navClass({ isActive }) {
   return `nav-link${isActive ? ' is-active' : ''}`
 }
 
 export function Sidebar({ onNavigate, className = '' }) {
-  const { health, libraries } = useNova()
+  const { health, libraries } = useNocturne()
   const online = Boolean(health?.reachable)
   const movieLibraries = libraries.filter((library) => library.type === 'movie')
   const showLibraries = libraries.filter((library) => library.type === 'show')
 
   return (
     <aside className={`sidebar ${className}`.trim()}>
-      <Link to="/" className="sidebar__brand" onClick={onNavigate} aria-label="NOVA home">
-        <NovaBrand />
+      <Link to="/" className="sidebar__brand" onClick={onNavigate} aria-label="Nocturne home">
+        <NocturneBrand />
       </Link>
 
       <nav className="sidebar__nav" aria-label="Main navigation">
@@ -73,7 +73,7 @@ export function Sidebar({ onNavigate, className = '' }) {
             <span className="server-card__account">{health.account.username}</span>
           ) : null}
         </Link>
-        <p className="sidebar__version">NOVA 1.0</p>
+        <p className="sidebar__version">Nocturne 1.0</p>
       </div>
     </aside>
   )

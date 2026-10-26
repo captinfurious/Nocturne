@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="nova" x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+    <linearGradient id="nocturne" x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
       <stop stop-color="#d8c8ff"/>
       <stop offset="0.48" stop-color="#9b78ff"/>
       <stop offset="1" stop-color="#5d3bb8"/>
@@ -12,6 +12,6 @@
   </defs>
   <rect width="64" height="64" rx="16" fill="#0b0910"/>
   <circle cx="32" cy="32" r="30" fill="url(#glow)"/>
-  <path d="M32 7.5 36.3 27.7 56.5 32 36.3 36.3 32 56.5 27.7 36.3 7.5 32 27.7 27.7Z" fill="url(#nova)"/>
+  <path d="M32 7.5 36.3 27.7 56.5 32 36.3 36.3 32 56.5 27.7 36.3 7.5 32 27.7 27.7Z" fill="url(#nocturne)"/>
   <circle cx="48.5" cy="15.5" r="2.2" fill="#e9deff"/>
 </svg>

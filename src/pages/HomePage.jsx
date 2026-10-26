@@ -33,7 +33,7 @@ export function HomePage() {
           icon={Clapperboard}
           eyebrow="Your library is quiet"
           title="No films or series yet"
-          message="NOVA only shows what is already inside Plex. Add or scan a Movies or TV Shows library in Plex, then refresh this page."
+          message="Nocturne only shows what is already inside Plex. Add or scan a Movies or TV Shows library in Plex, then refresh this page."
           action={
             <Link className="button button--secondary" to="/settings">
               <Settings2 size={16} />
@@ -55,7 +55,7 @@ export function HomePage() {
       ) : (
         <header className="page-header page-header--home-fallback">
           <p className="eyebrow">Your private cinema</p>
-          <h1>Welcome to NOVA</h1>
+          <h1>Welcome to Nocturne</h1>
           <p>Everything below comes directly from your Plex library.</p>
         </header>
       )}
@@ -84,7 +84,7 @@ export function HomePage() {
         <div>
           <span className="home-footer__mark" aria-hidden="true">✦</span>
           <p>
-            <strong>NOVA</strong> is your private screening room. Plex keeps the media — NOVA
+            <strong>Nocturne</strong> is your private screening room. Plex keeps the media — Nocturne
             just makes it feel like the movies.
           </p>
         </div>

@@ -1,11 +1,11 @@
 import { createContext, useContext } from 'react'
 
-export const NovaContext = createContext(null)
+export const NocturneContext = createContext(null)
 
-export function useNova() {
-  const value = useContext(NovaContext)
+export function useNocturne() {
+  const value = useContext(NocturneContext)
   if (!value) {
-    throw new Error('useNova must be used inside NovaContext.Provider')
+    throw new Error('useNocturne must be used inside NocturneContext.Provider')
   }
   return value
 }

@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const DATA_DIR = process.env.NOVA_DATA_DIR
-  ? path.resolve(process.env.NOVA_DATA_DIR)
+const DATA_DIR = process.env.NOCTURNE_DATA_DIR
+  ? path.resolve(process.env.NOCTURNE_DATA_DIR)
   : path.join(ROOT, 'data')
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json')
 const DIST_DIR = path.join(ROOT, 'dist')
@@ -49,7 +49,7 @@ export function readConfig() {
     }
   } catch (error) {
     if (error.code !== 'ENOENT') {
-      console.warn('[NOVA] Could not read data/config.json; starting a fresh local config.')
+      console.warn('[Nocturne] Could not read data/config.json; starting a fresh local config.')
     }
     cachedConfig = emptyConfig()
     writeConfig(cachedConfig)

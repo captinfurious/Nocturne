@@ -27,15 +27,15 @@ export function StatePanel({
 
 export function ErrorState({ error, onRetry, compact = false }) {
   const needsReconnect = ['PLEX_UNAUTHORIZED', 'NOT_CONFIGURED'].includes(error?.code)
-  const offline = ['PLEX_UNREACHABLE', 'NOVA_SERVER_UNREACHABLE'].includes(error?.code)
+  const offline = ['PLEX_UNREACHABLE', 'NOCTURNE_SERVER_UNREACHABLE'].includes(error?.code)
   const technical = [error?.detail, error?.attempts].filter(Boolean).join('\n')
 
   return (
     <StatePanel
       icon={offline ? WifiOff : CircleAlert}
       eyebrow={offline ? 'Connection interrupted' : 'Something went wrong'}
-      title={needsReconnect ? 'Plex needs to be reconnected' : offline ? 'The theatre is offline' : 'NOVA hit a snag'}
-      message={error?.message || 'NOVA could not load this right now.'}
+      title={needsReconnect ? 'Plex needs to be reconnected' : offline ? 'The theatre is offline' : 'Nocturne hit a snag'}
+      message={error?.message || 'Nocturne could not load this right now.'}
       className={compact ? 'state-panel--compact' : ''}
       action={
         <>

@@ -17,7 +17,7 @@ import {
   buildSearch,
   buildSeasonEpisodes,
   buildTitlePage,
-} from './nova.js'
+} from './nocturne.js'
 import { fetchPlexImage, getLibraries, plexWebUrl, probePlexServer } from './plex.js'
 import { PlexError, checkPin, createPin, discoverPlexServer } from './plexAuth.js'
 
@@ -57,7 +57,7 @@ app.use('/api', (req, res, next) => {
   if (origin && !allowedOrigins.has(origin)) {
     res.status(403).json({
       error: {
-        message: 'NOVA rejected a cross-origin request.',
+        message: 'Nocturne rejected a cross-origin request.',
         code: 'CROSS_ORIGIN_BLOCKED',
       },
     })
@@ -67,7 +67,7 @@ app.use('/api', (req, res, next) => {
   if (req.get('Sec-Fetch-Site') === 'cross-site') {
     res.status(403).json({
       error: {
-        message: 'NOVA rejected a cross-site request.',
+        message: 'Nocturne rejected a cross-site request.',
         code: 'CROSS_SITE_BLOCKED',
       },
     })
@@ -81,7 +81,7 @@ function requireConfigured() {
   const status = getPublicStatus()
   if (!status.configured) {
     throw new PlexError(
-      'NOVA is not connected to Plex yet. Sign in on the setup screen first.',
+      'Nocturne is not connected to Plex yet. Sign in on the setup screen first.',
       { status: 503, code: 'NOT_CONFIGURED' },
     )
   }
@@ -125,12 +125,12 @@ app.get('/api/health', async (req, res) => {
         connectionError = 'Plex Media Server did not answer. Check that it is running.'
       }
     } catch {
-      connectionError = 'NOVA could not verify the Plex connection. Try again in a moment.'
+      connectionError = 'Nocturne could not verify the Plex connection. Try again in a moment.'
     }
   }
 
   res.json({
-    product: 'NOVA',
+    product: 'Nocturne',
     ...status,
     reachable,
     authError,
@@ -178,7 +178,7 @@ app.get('/api/library/:key', async (req, res) => {
   const page = await cached(cacheKey, 30_000, () =>
     buildLibraryPage(key, { sort, start, size }))
   if (!page) {
-    throw new PlexError('That library is not available in NOVA.', {
+    throw new PlexError('That library is not available in Nocturne.', {
       status: 404,
       code: 'LIBRARY_NOT_FOUND',
     })
@@ -314,7 +314,7 @@ app.post('/api/auth/rediscover', async (req, res) => {
   const credentials = getCredentials()
   if (credentials.source !== 'config') {
     throw new PlexError(
-      'This connection comes from .env, so NOVA cannot rediscover it automatically. Update PLEX_URL in .env.',
+      'This connection comes from .env, so Nocturne cannot rediscover it automatically. Update PLEX_URL in .env.',
       { status: 400, code: 'ENV_CONNECTION' },
     )
   }
@@ -346,7 +346,7 @@ app.get('/api/play/:key', async (req, res) => {
 })
 
 app.use('/api', (req, res) => {
-  res.status(404).json({ error: { message: 'That NOVA API route does not exist.' } })
+  res.status(404).json({ error: { message: 'That Nocturne API route does not exist.' } })
 })
 
 const indexFile = path.join(distDir, 'index.html')
@@ -388,7 +388,7 @@ if (fs.existsSync(indexFile)) {
 } else {
   app.get('/', (req, res) => {
     res.type('text/plain').send(
-      'NOVA API is running.\n\nStart the dev UI with: npm run dev\nThen open http://127.0.0.1:5173',
+      'Nocturne API is running.\n\nStart the dev UI with: npm run dev\nThen open http://127.0.0.1:5173',
     )
   })
 }
@@ -398,12 +398,12 @@ app.use((error, req, res, next) => {
 
   const status = error instanceof PlexError ? error.status : 500
   if (!(error instanceof PlexError)) {
-    console.error('[NOVA] Unexpected server error:', error?.message || error)
+    console.error('[Nocturne] Unexpected server error:', error?.message || error)
   }
 
   res.status(status).json({
     error: {
-      message: error.message || 'Something went wrong inside NOVA.',
+      message: error.message || 'Something went wrong inside Nocturne.',
       code: error.code || 'INTERNAL_ERROR',
       detail: error.detail || null,
       attempts: error.attempts || null,
@@ -412,12 +412,12 @@ app.use((error, req, res, next) => {
 })
 
 app.listen(PORT, HOST, () => {
-  console.log(`\n  NOVA API ready at http://${HOST}:${PORT}`)
+  console.log(`\n  Nocturne API ready at http://${HOST}:${PORT}`)
   if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
-    console.warn('  Warning: the NOVA API is not bound to this PC only. Keep HOST=127.0.0.1 for local use.')
+    console.warn('  Warning: the Nocturne API is not bound to this PC only. Keep HOST=127.0.0.1 for local use.')
   }
   if (fs.existsSync(indexFile)) {
-    console.log(`  Built NOVA app available at http://${HOST}:${PORT}`)
+    console.log(`  Built Nocturne app available at http://${HOST}:${PORT}`)
   } else {
     console.log('  Development UI: run npm run dev, then open http://127.0.0.1:5173')
   }

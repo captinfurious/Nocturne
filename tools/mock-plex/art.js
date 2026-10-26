@@ -98,7 +98,7 @@ function poster(subject) {
     <ellipse cx="320" cy="154" rx="70" ry="164" fill="none" stroke="${colors[2]}" stroke-opacity="0.35" transform="rotate(34 320 154)"/>
     <path d="M-20 548 C110 430 222 574 430 438" fill="none" stroke="${colors[3]}" stroke-opacity="0.2" stroke-width="1.2"/>
     <path d="M-30 574 C120 472 236 616 430 478" fill="none" stroke="${colors[3]}" stroke-opacity="0.12" stroke-width="1"/>
-    <text x="34" y="54" fill="${colors[3]}" fill-opacity="0.58" font-family="Segoe UI, Arial, sans-serif" font-size="8.5" font-weight="700" letter-spacing="2.2">A NOVA TEST LIBRARY PRESENTATION</text>
+    <text x="34" y="54" fill="${colors[3]}" fill-opacity="0.58" font-family="Segoe UI, Arial, sans-serif" font-size="8.5" font-weight="700" letter-spacing="2.2">A NOCTURNE TEST LIBRARY PRESENTATION</text>
     <path d="M34 72 H88" stroke="${colors[3]}" stroke-opacity="0.4"/>
     <text x="34" y="${startY - 46}" fill="${colors[3]}" fill-opacity="0.78" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="3.2">${text.year}</text>
     ${lines.map((line, index) => `<text x="32" y="${startY + index * fontSize * 1.04}" fill="#f7f2ff" font-family="Segoe UI, Arial, sans-serif" font-size="${fontSize}" font-weight="800" letter-spacing="-1.2">${esc(line)}</text>`).join('')}
@@ -128,7 +128,7 @@ function backdrop(subject) {
     <ellipse cx="1230" cy="280" rx="210" ry="470" fill="none" stroke="${colors[2]}" stroke-opacity="0.25" transform="rotate(27 1230 280)"/>
     <path d="M-80 810 C300 590 650 910 1050 650 C1300 486 1510 540 1700 430" fill="none" stroke="${colors[3]}" stroke-opacity="0.16"/>
     <path d="M-70 860 C310 650 680 966 1080 700 C1330 532 1540 592 1710 486" fill="none" stroke="${colors[3]}" stroke-opacity="0.09"/>
-    <text x="70" y="82" fill="${colors[3]}" fill-opacity="0.6" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="4">A NOVA TEST LIBRARY PRESENTATION</text>
+    <text x="70" y="82" fill="${colors[3]}" fill-opacity="0.6" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="4">A NOCTURNE TEST LIBRARY PRESENTATION</text>
     <text x="1010" y="${startY - 60}" fill="${colors[3]}" fill-opacity="0.8" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="5">${text.year}</text>
     ${lines.map((line, index) => `<text x="1006" y="${startY + index * fontSize * 1.01}" fill="#f8f3ff" fill-opacity="0.9" font-family="Segoe UI, Arial, sans-serif" font-size="${fontSize}" font-weight="800" letter-spacing="-2">${esc(line)}</text>`).join('')}
     <text x="1010" y="${startY + lines.length * fontSize + 20}" fill="${colors[3]}" fill-opacity="0.58" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" letter-spacing="3">${text.genres}</text>
@@ -163,7 +163,7 @@ function still(subject) {
 
 export function renderArt(subject, kind) {
   if (!subject) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="400" height="600" fill="#0d0a13"/><text x="200" y="300" text-anchor="middle" fill="#8f7aa8" font-family="sans-serif" font-size="14">NOVA test artwork</text></svg>`
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="400" height="600" fill="#0d0a13"/><text x="200" y="300" text-anchor="middle" fill="#8f7aa8" font-family="sans-serif" font-size="14">Nocturne test artwork</text></svg>`
   }
   if (kind === 'still') return still(subject)
   if (kind === 'backdrop') return backdrop(subject)

@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { Route, Routes } from 'react-router-dom'
 import { api } from './api.js'
-import { NovaContext } from './app-context.js'
+import { NocturneContext } from './app-context.js'
 import { AppShell } from './components/AppShell.jsx'
-import { NovaMark } from './components/Logo.jsx'
+import { NocturneMark } from './components/Logo.jsx'
 import { useRemote } from './hooks/useRemote.js'
 import { HomePage } from './pages/HomePage.jsx'
 import { LibraryPage } from './pages/LibraryPage.jsx'
@@ -18,9 +18,9 @@ function Splash({ label = 'Preparing your cinema' }) {
   return (
     <div className="boot-screen" role="status" aria-live="polite">
       <div className="boot-screen__halo" aria-hidden="true">
-        <NovaMark size={58} />
+        <NocturneMark size={58} />
       </div>
-      <p className="boot-screen__word">NOVA</p>
+      <p className="boot-screen__word">NOCTURNE</p>
       <p className="boot-screen__label">{label}<span className="boot-screen__dots" aria-hidden="true">…</span></p>
     </div>
   )
@@ -30,13 +30,13 @@ function BootError({ error, onRetry }) {
   return (
     <div className="boot-screen boot-screen--error">
       <div className="boot-screen__halo" aria-hidden="true">
-        <NovaMark size={50} />
+        <NocturneMark size={50} />
       </div>
       <p className="eyebrow">Local server offline</p>
-      <h1>NOVA can’t reach its own engine.</h1>
-      <p>{error?.message || 'The NOVA API is not running.'}</p>
+      <h1>Nocturne can’t reach its own engine.</h1>
+      <p>{error?.message || 'The Nocturne API is not running.'}</p>
       <div className="boot-error__help">
-        <p>Open PowerShell in the NOVA folder and run:</p>
+        <p>Open PowerShell in the Nocturne folder and run:</p>
         <code>npm run dev</code>
         <p>Then open <strong>http://127.0.0.1:5173</strong>.</p>
       </div>
@@ -118,7 +118,7 @@ export default function App() {
   }
 
   return (
-    <NovaContext.Provider value={contextValue}>
+    <NocturneContext.Provider value={contextValue}>
       <Routes>
         <Route element={<AppShell />}>
           <Route index element={<HomePage />} />
@@ -129,6 +129,6 @@ export default function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
-    </NovaContext.Provider>
+    </NocturneContext.Provider>
   )
 }

@@ -8,7 +8,7 @@ function requireCredentials() {
   const credentials = getCredentials()
   if (!credentials.token || !credentials.server?.uri) {
     throw new PlexError(
-      'NOVA is not connected to Plex yet. Open Settings and sign in to your Plex account.',
+      'Nocturne is not connected to Plex yet. Open Settings and sign in to your Plex account.',
       { status: 503, code: 'NOT_CONFIGURED' },
     )
   }
@@ -60,7 +60,7 @@ async function plexRequest(pathname, { query = {}, timeout = DEFAULT_TIMEOUT, ac
     throw new PlexError(
       isTimeout
         ? 'Plex Media Server took too long to respond. It may be scanning or restarting.'
-        : 'NOVA could not reach Plex Media Server. Check that Plex is running, then try again.',
+        : 'Nocturne could not reach Plex Media Server. Check that Plex is running, then try again.',
       { status: 502, code: 'PLEX_UNREACHABLE', detail: error.message },
     )
   }
@@ -214,7 +214,7 @@ async function resolveMachineIdentifier() {
       signal: AbortSignal.timeout(5000),
     })
   } catch {
-    throw new PlexError('NOVA could not ask Plex for its server identifier.', {
+    throw new PlexError('Nocturne could not ask Plex for its server identifier.', {
       status: 502,
       code: 'PLEX_UNREACHABLE',
     })
@@ -231,7 +231,7 @@ async function resolveMachineIdentifier() {
   const machineIdentifier = data?.MediaContainer?.machineIdentifier
   if (!machineIdentifier) {
     throw new PlexError(
-      'NOVA does not know this Plex server’s identifier. Reconnect in Settings.',
+      'Nocturne does not know this Plex server’s identifier. Reconnect in Settings.',
       { status: 503, code: 'NO_MACHINE_ID' },
     )
   }

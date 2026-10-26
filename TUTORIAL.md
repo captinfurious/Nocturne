@@ -1,18 +1,18 @@
-# NOVA — download and installation guide
+# Nocturne — download and installation guide
 
-This guide takes you from the GitHub page to a working NOVA interface connected to your
+This guide takes you from the GitHub page to a working Nocturne interface connected to your
 own Plex library. It is written for **Windows 10 or 11** and assumes you have never run a
 Node.js project before.
 
-NOVA is only an interface. It does not move, rename, delete, or copy your media. Your
+Nocturne is only an interface. It does not move, rename, delete, or copy your media. Your
 existing Plex Media Server keeps the files, metadata, playback engine, and watch history.
 
-The GitHub repository is **Plex-Modification**; the application inside it is called **NOVA**.
+The application and its GitHub repository are both called **Nocturne**.
 
-**Repository:** <https://github.com/captinfurious/Plex-Modification>
+**Repository:** <https://github.com/captinfurious/Nocturne>
 
 > The repository is private by default. Sign in to GitHub with the account that owns it
-> before downloading. If you want other people to download NOVA, change the repository
+> before downloading. If you want other people to download Nocturne, change the repository
 > visibility to public in **Settings → General → Danger Zone**.
 
 ---
@@ -31,7 +31,7 @@ You do **not** need to install Plex again, change Plex settings, or move your me
 
 ---
 
-## Step 1 — Download NOVA
+## Step 1 — Download Nocturne
 
 You can download the project as a ZIP file or clone it with Git. Use the ZIP method if you
 are new to development.
@@ -39,22 +39,22 @@ are new to development.
 ### Option A — Download the ZIP (recommended for beginners)
 
 1. Open the repository page in Edge:
-   <https://github.com/captinfurious/Plex-Modification>
+   <https://github.com/captinfurious/Nocturne>
 2. Click the green **Code** button.
 3. Click **Download ZIP**.
 4. Open your **Downloads** folder.
-5. Right-click `Plex-Modification-main.zip` and choose **Extract All…**.
+5. Right-click `Nocturne-main.zip` and choose **Extract All…**.
 6. Extract it somewhere easy to find. For example:
 
    ```text
-   C:\Users\<YourName>\Projects\Plex-Modification
+   C:\Users\<YourName>\Projects\Nocturne
    ```
 
-> **Important:** Do not run NOVA from inside the ZIP file. Windows lets you browse a ZIP
+> **Important:** Do not run Nocturne from inside the ZIP file. Windows lets you browse a ZIP
 > like a folder, but the project needs a real extracted folder.
 
 If you extracted the ZIP with the default name, the inner folder will be called
-`Plex-Modification-main`. You can rename it to `Plex-Modification` so the examples below
+`Nocturne-main`. You can rename it to `Nocturne` so the examples below
 match exactly; either name works as long as you adjust the paths.
 
 ### Option B — Clone with Git
@@ -64,8 +64,8 @@ installed. Then open PowerShell and run:
 
 ```powershell
 cd "C:\Users\<YourName>\Projects"
-git clone https://github.com/captinfurious/Plex-Modification.git
-cd Plex-Modification
+git clone https://github.com/captinfurious/Nocturne.git
+cd Nocturne
 ```
 
 A private repository will ask you to sign in to GitHub. Use your normal GitHub account.
@@ -74,7 +74,7 @@ A private repository will ask you to sign in to GitHub. Use your normal GitHub a
 
 ## Step 2 — Install Node.js
 
-NOVA needs **Node.js 22.12 or newer**. Node 24 LTS is recommended.
+Nocturne needs **Node.js 22.12 or newer**. Node 24 LTS is recommended.
 
 In PowerShell, check whether Node is already installed:
 
@@ -111,7 +111,7 @@ In PowerShell, use `cd` followed by the real path of the folder that contains
 `package.json`.
 
 ```powershell
-cd "C:\Users\<YourName>\Projects\Plex-Modification"
+cd "C:\Users\<YourName>\Projects\Nocturne"
 ```
 
 Replace `<YourName>` with your Windows user name and adjust the path if you extracted the
@@ -137,7 +137,7 @@ folder you created when extracting the ZIP.
 
 ---
 
-## Step 4 — Install NOVA's dependencies
+## Step 4 — Install Nocturne's dependencies
 
 With PowerShell still in the project folder, run:
 
@@ -145,7 +145,7 @@ With PowerShell still in the project folder, run:
 npm install
 ```
 
-This downloads the packages NOVA needs into a local `node_modules` folder. It usually takes
+This downloads the packages Nocturne needs into a local `node_modules` folder. It usually takes
 30 seconds to a few minutes. You only need to do this after the first download or after the
 project's dependencies change.
 
@@ -162,7 +162,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 ```
 
 Then confirm the prompt and try `npm install` again. Do not disable Windows security
-features globally just to run NOVA.
+features globally just to run Nocturne.
 
 ---
 
@@ -174,7 +174,7 @@ Start **Plex Media Server** and open this address in Edge:
 http://127.0.0.1:32400/web
 ```
 
-You should see your Plex library. If that address does not work, fix Plex first; NOVA cannot
+You should see your Plex library. If that address does not work, fix Plex first; Nocturne cannot
 work without it.
 
 If Plex runs on another computer on your network, keep that computer awake and note its
@@ -184,11 +184,11 @@ address, for example:
 http://192.168.1.50:32400
 ```
 
-NOVA's setup screen can use a manual server address if automatic discovery cannot find it.
+Nocturne's setup screen can use a manual server address if automatic discovery cannot find it.
 
 ---
 
-## Step 6 — Start NOVA for the first time
+## Step 6 — Start Nocturne for the first time
 
 In the same PowerShell window, run:
 
@@ -198,8 +198,8 @@ npm run dev
 
 This starts two local processes:
 
-- the NOVA API on `http://127.0.0.1:8787`
-- the NOVA interface on `http://127.0.0.1:5173`
+- the Nocturne API on `http://127.0.0.1:8787`
+- the Nocturne interface on `http://127.0.0.1:5173`
 
 Keep the PowerShell window open. Now open Edge and go to:
 
@@ -207,21 +207,21 @@ Keep the PowerShell window open. Now open Edge and go to:
 http://127.0.0.1:5173
 ```
 
-You will see the NOVA setup screen.
+You will see the Nocturne setup screen.
 
 ### Connect your Plex account
 
 1. Click **Sign in to Plex**.
 2. A Plex login page opens in a new tab.
 3. Sign in with your normal Plex account.
-4. If Plex asks for the one-time code, copy it from the NOVA setup screen.
-5. Return to the NOVA tab. NOVA detects the sign-in and finds your server automatically.
+4. If Plex asks for the one-time code, copy it from the Nocturne setup screen.
+5. Return to the Nocturne tab. Nocturne detects the sign-in and finds your server automatically.
 6. Your home page appears with content from your real Plex library.
 
-NOVA stores the Plex token **only on this PC** in `data/config.json`. The browser never
-receives the token, and your Plex password is never seen by NOVA.
+Nocturne stores the Plex token **only on this PC** in `data/config.json`. The browser never
+receives the token, and your Plex password is never seen by Nocturne.
 
-### If NOVA cannot find your server
+### If Nocturne cannot find your server
 
 On the setup screen, click **Use a Plex token instead** or **Connect with a token and server
 address**. You will need:
@@ -237,7 +237,7 @@ password.
 
 ---
 
-## Step 7 — Start NOVA after restarting your PC
+## Step 7 — Start Nocturne after restarting your PC
 
 For everyday use, you do not need the development server. From the project folder, run:
 
@@ -245,44 +245,44 @@ For everyday use, you do not need the development server. From the project folde
 npm start
 ```
 
-NOVA builds the interface and serves the whole app at:
+Nocturne builds the interface and serves the whole app at:
 
 ```text
 http://127.0.0.1:8787
 ```
 
 Open that address in Edge. The first build takes a few seconds. Keep PowerShell open while
-you use NOVA.
+you use Nocturne.
 
 Suggested daily routine:
 
 1. Start **Plex Media Server**.
 2. Open PowerShell.
-3. Run `cd "C:\Users\<YourName>\Projects\Plex-Modification"`.
+3. Run `cd "C:\Users\<YourName>\Projects\Nocturne"`.
 4. Run `npm start`.
 5. Open `http://127.0.0.1:8787`.
 
-Press `Ctrl+C` in PowerShell to stop NOVA. Closing the window also stops it.
+Press `Ctrl+C` in PowerShell to stop Nocturne. Closing the window also stops it.
 
 ---
 
-## Playback in NOVA
+## Playback in Nocturne
 
-NOVA reads your Plex library, artwork, metadata, Continue Watching progress, and episodes.
-When you press a Play or Resume button, NOVA opens the exact movie or episode in **Plex Web**.
+Nocturne reads your Plex library, artwork, metadata, Continue Watching progress, and episodes.
+When you press a Play or Resume button, Nocturne opens the exact movie or episode in **Plex Web**.
 
 Playback stays inside Plex in this version. That is deliberate:
 
 - Plex handles codecs, direct play, transcoding, subtitles, and audio tracks.
-- Resume points stay in the same place NOVA reads them from.
+- Resume points stay in the same place Nocturne reads them from.
 - Nothing about your Plex installation or media files is modified.
 
-An embedded player inside NOVA can be added later, but it is a much larger project than the
+An embedded player inside Nocturne can be added later, but it is a much larger project than the
 first release.
 
 ---
 
-## Updating NOVA later
+## Updating Nocturne later
 
 ### If you downloaded the ZIP
 
@@ -308,12 +308,12 @@ after an update is harmless.
 
 ## Troubleshooting
 
-### "NOVA can't reach its own engine"
+### "Nocturne can't reach its own engine"
 
-The local API is not running. Make sure the PowerShell window is still open and start NOVA
+The local API is not running. Make sure the PowerShell window is still open and start Nocturne
 again with `npm run dev` or `npm start`.
 
-### "NOVA is not connected to Plex yet"
+### "Nocturne is not connected to Plex yet"
 
 Complete the setup screen. If Plex was working before, open **Settings** and click
 **Test connection**, or sign in again.
@@ -322,8 +322,8 @@ Complete the setup screen. If Plex was working before, open **Settings** and cli
 
 - Start Plex Media Server.
 - Test `http://127.0.0.1:32400/web` in Edge.
-- Click **Retry** in NOVA.
-- If you use a different port, enter that address on the NOVA setup screen.
+- Click **Retry** in Nocturne.
+- If you use a different port, enter that address on the Nocturne setup screen.
 
 ### Plex sign-in finds my account but not my server
 
@@ -333,7 +333,7 @@ make sure Windows Firewall allows Plex on the local network.
 
 ### "Port already in use" / EADDRINUSE
 
-Another copy of NOVA may still be running. Close the old PowerShell window or stop the old
+Another copy of Nocturne may still be running. Close the old PowerShell window or stop the old
 process. To see what is using the ports:
 
 ```powershell
@@ -342,19 +342,19 @@ Get-NetTCPConnection -LocalPort 8787,5173 -ErrorAction SilentlyContinue |
 ```
 
 If you intentionally use a different port, set `PORT=8788` in a local `.env` file. The Vite
-proxy reads the same setting. Restart NOVA after changing it.
+proxy reads the same setting. Restart Nocturne after changing it.
 
 ### My posters are missing
 
-Confirm the Plex connection in **Settings**, then reload. NOVA proxies artwork through its
+Confirm the Plex connection in **Settings**, then reload. Nocturne proxies artwork through its
 local backend because Plex image paths also require authentication.
 
 ### I want to disconnect or start over
 
 Open **Settings → Disconnect Plex**. This removes the saved token and server details from
-NOVA. It does not change Plex, your account, or any media file.
+Nocturne. It does not change Plex, your account, or any media file.
 
-To completely remove NOVA, stop it, delete the project folder, and optionally delete its
+To completely remove Nocturne, stop it, delete the project folder, and optionally delete its
 `data` folder. Nothing is installed as a Windows service.
 
 ### The interface says "previous Plex connection expired"
@@ -366,12 +366,12 @@ media is damaged. It usually means the token was revoked or the Plex account pas
 
 ## Privacy and safety
 
-- NOVA's backend listens only on `127.0.0.1` by default. It is not exposed to the internet.
+- Nocturne's backend listens only on `127.0.0.1` by default. It is not exposed to the internet.
 - Your Plex token is stored in `data/config.json` and is excluded from Git.
 - `.env`, `data/`, `node_modules/`, `dist/`, and temporary tooling are excluded from the
   repository.
 - Do not change `HOST` to `0.0.0.0` or forward port 8787 on your router without adding real
-  authentication. NOVA 1.0 has no multi-user login of its own.
+  authentication. Nocturne 1.0 has no multi-user login of its own.
 - The included `tools/mock-plex` server is only for development. Never point a real Plex
   account or token at it.
 
@@ -380,7 +380,7 @@ media is damaged. It usually means the token was revoked or the Plex account pas
 ## Where to go next
 
 - Read [README.md](README.md) for the full project and security documentation.
-- Once NOVA works on your PC, the natural next step is a **TV mode** with large focus states
+- Once Nocturne works on your PC, the natural next step is a **TV mode** with large focus states
   and keyboard/D-pad navigation.
 - Android TV, Fire TV, Roku, Apple TV, Samsung Tizen, and LG webOS require separate packaged
   apps. See the Smart TV roadmap in [README.md](README.md#smart-tv-roadmap--what-runs-where).
