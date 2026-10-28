@@ -1,11 +1,11 @@
 # Nocturne
 
-Nocturne is a private, Netflix-inspired streaming front end for an existing **Plex Media Server**.
-Plex keeps the files, metadata, playback engine, and watch history. Nocturne gives that library a
-distinct cinematic interface: a large featured hero, artwork rows, real resume progress, search,
-library browsing, title and season details, and one-click playback through Plex.
+Nocturne is a private, cinematic streaming front end for an existing **Plex Media Server**.
+Plex keeps the files, metadata, transcoder, and watch history. Nocturne gives that library a
+distinct interface: a large featured hero, artwork rows, real resume progress, search, library
+browsing, title and season details, and an in-app player that streams straight from Plex.
 
-**Current version:** 1.0.0 — desktop and responsive web, focused on Windows + Plex Web.
+**Current version:** 1.0.0 — desktop and responsive web with in-app playback, focused on Windows + Plex.
 
 **New to Nocturne?** Follow the step-by-step **[download and Windows installation guide](TUTORIAL.md)**.
 
@@ -27,7 +27,9 @@ library browsing, title and season details, and one-click playback through Plex.
 - Search across the Plex library, including episode names.
 - Paginated movie and TV library pages with sorting.
 - Movie and series detail pages, season switching, episode lists, and watch progress.
-- Playback handoff to Plex Web using the correct Plex server and title deep link.
+- Built-in player with resume, seeking, volume, fullscreen, keyboard shortcuts, and buffering states.
+- Direct play for browser-compatible files; automatic Plex HLS transcoding for everything else.
+- Watch progress and finished titles are written back to Plex, so Continue Watching stays current.
 - Plex token and all Plex API requests stay on the local backend. The browser never receives the token.
 - Loading skeletons, empty states, connection errors, retry actions, and a Plex-offline banner.
 - Responsive layout for desktop, tablet, and mobile, with a TV-oriented larger layout at wide viewports.
@@ -194,29 +196,43 @@ There is no separate database or cloud service to start. The Plex connection is 
 
 ---
 
-## Playback: what the Play buttons do
+## Playback: how the in-app player works
 
-Nocturne deliberately hands playback to **Plex Web** in version 1:
+Every **Play** and **Resume** button now opens Nocturne's own full-screen player. Playback still
+runs on your Plex server; Nocturne is the screen in front of it.
 
-- A movie's **Play on Plex** opens that exact movie in Plex Web.
-- A series shows **Resume S1 · E3** when Plex On Deck has a partially watched episode.
-- Each episode has its own play/resume link.
-- Plex handles direct play, transcoding, subtitles, audio tracks, resume points, and its own user
-  profiles. This is much more reliable than reimplementing a media player for every codec in a
-  first release.
+1. Nocturne asks Plex for the movie or episode and its media file.
+2. If the browser can play that file as-is (MP4/M4V/WebM with H.264/VP8/VP9/AV1 video and
+   AAC/MP3/Opus/Vorbis audio), the player streams the original file with HTTP range requests.
+   This is **direct play** and starts instantly.
+3. Otherwise Plex's universal transcoder converts the file to HLS in real time and Nocturne proxies
+   the playlist and segments. The player badge shows **Plex transcode**.
 
-The Plex deep link looks like this, and contains **no token**:
+All Plex requests, including the token and the transcode session, stay on the backend. The browser
+only sees opaque, temporary Nocturne session IDs. Those sessions expire after six hours or when the
+player closes.
 
-```text
-http://127.0.0.1:32400/web/#!/server/<server-id>/details?key=%2Flibrary%2Fmetadata%2F<rating-key>
-```
+### Player controls
 
-Because playback stays inside Plex, progress continues to update in the same place Nocturne reads
-Continue Watching from. A native in-app player can be added later without changing the rest of the
-library UI.
+- Click the video or press **Space** / **K** to play or pause.
+- **← / →** skip 10 seconds, **J / L** skip 30 seconds.
+- **↑ / ↓** change volume, **M** mutes, **F** toggles fullscreen, **Esc** closes the player.
+- The scrub bar supports mouse, touch, and keyboard seeking.
+- Resume points are read from Plex. Progress is sent while playing, when pausing, and when closing;
+  finishing a title marks it watched in Plex and updates Continue Watching.
 
-To open Plex on a different address, set `PLEX_WEB_BASE_URL` in `.env` (for example
-`https://app.plex.tv/desktop`). The default uses the local Plex Web app.
+### Playback behaviour to expect
+
+- A transcoded stream starts a few seconds slower than direct play because Plex has to prepare it.
+- Seeking inside a transcoded title restarts the Plex transcode at the new position. That is reliable
+  across Plex versions, but it is not instant like direct play.
+- Subtitle track selection is not implemented yet. Titles that rely on external subtitle tracks may
+  play without subtitles. Audio track selection is also not exposed yet.
+- The player falls back to **Open in Plex** if Plex cannot produce a stream. That button opens the
+  exact title in Plex Web and contains no token.
+
+Nocturne never modifies your media files or your Plex installation. It only asks Plex to read and
+stream them.
 
 ---
 
@@ -245,11 +261,13 @@ Nocturne/
 │  ├─ index.js        Local Express API, setup routes, static hosting, security headers
 │  ├─ plexAuth.js     Plex PIN sign-in, plex.tv resource discovery, token validation
 │  ├─ plex.js         Server-side Plex API client, image proxy, Plex Web deep links
-│  ├─ nocturne.js         Plex → Nocturne normalization, home rows, search, details, libraries
+│  ├─ player.js       In-app playback sessions, direct streaming, HLS proxy, Plex progress
+│  ├─ nocturne.js     Plex → Nocturne normalization, home rows, search, details, libraries
 │  ├─ cache.js        Short-lived in-memory cache for Plex reads
 │  └─ config.js       Local data/config.json management; never exposed to the browser
 ├─ src/
-│  ├─ components/     App shell, hero, rows, cards, skeletons, states
+│  ├─ components/     App shell, hero, rows, cards, player overlay, skeletons, states
+│  ├─ player/         Player state provider shared by every Play button
 │  ├─ pages/          Home, Library, Search, Title, Setup, Settings, Not Found
 │  ├─ hooks/          Data loading and page title hooks
 │  ├─ lib/            Formatting and media helpers
@@ -281,7 +299,13 @@ GET  /api/auth/pin/:id
 POST /api/auth/manual
 POST /api/auth/rediscover
 POST /api/auth/disconnect
-GET  /api/play/:ratingKey       → 302 redirect to Plex Web (no token in URL)
+POST /api/player                 → create a temporary playback session
+GET  /api/player/:id/master.m3u8 → proxied Plex HLS master playlist
+GET  /api/player/:id/hls?u=...    → proxied HLS playlist or segment
+GET  /api/player/:id/stream       → direct-play media with range support
+POST /api/player/:id/progress     → write playback position to Plex
+POST /api/player/:id/stop         → stop the transcode and finalize Plex progress
+GET  /api/play/:ratingKey        → 302 fallback to the title in Plex Web (no token in URL)
 ```
 
 Only the local frontend is intended to call these routes.
@@ -389,15 +413,20 @@ This build was verified end to end against an isolated mock Plex + plex.tv API:
 
 - PIN sign-in, server discovery, token storage, manual token fallback, and invalid-token errors.
 - Home rows, genre rows, Continue Watching progress, libraries, search, movie details, show
-  seasons, episode progress, artwork proxying, playback redirects, and token-leak checks.
+  seasons, episode progress, artwork proxying, and token-leak checks.
+- In-app direct playback with real MP4 video, byte-range requests, resume, progress reporting, and
+  the ended state.
+- In-app HLS playback against a mock transcode with a real HLS playlist and MPEG-TS segment.
+- Playback-session authorization, invalid-path rejection, session expiry, and Plex stop calls.
 - Browser rendering, navigation, live search, season switching, settings actions, mobile layout,
   and console errors.
 - Production build and local Express hosting.
 
 The actual Plex server at `127.0.0.1:32400` on your Windows PC is not reachable from the build
-environment used here, so the final real-server connection and real playback handoff still need to
-be confirmed on your machine. If Plex returns an unexpected response, capture the error shown by
-Nocturne and the relevant PowerShell output rather than deleting the project.
+environment used here, so the final real-server connection and real-transcode playback still need
+to be confirmed on your machine. The mock server under `tools/mock-plex` now includes a short test
+video and HLS fixture for local player testing. If Plex returns an unexpected response, capture the
+error shown by Nocturne and the relevant PowerShell output rather than deleting the project.
 
 ---
 
@@ -433,15 +462,15 @@ Recommended order:
    clients.
 
 For any TV client, keep the Plex token off the device if possible by hosting the Nocturne API on a
-trusted machine, and add real authentication before exposing that API beyond localhost. Long term,
-Nocturne can either keep launching Plex playback (simple and robust) or grow its own native player
-using Plex's HLS/transcoding endpoints (more control, much more work).
+trusted machine, and add real authentication before exposing that API beyond localhost. The web
+player and the `/api/player` session API are the reusable playback layer for those clients.
 
 ---
 
 ## Known limitations in 1.0
 
-- Playback opens Plex Web rather than playing inside Nocturne. This is intentional for reliability.
+- Subtitle and audio-track selection are not implemented. Plex's default streams are used.
+- Seeking in a transcoded title restarts the Plex transcode and takes a few seconds.
 - Single Plex account and single selected server; switching Plex Home users is not implemented yet.
 - Home rows use the first movie library and first TV library (all supported libraries appear in the
   sidebar and have their own pages).

@@ -9,6 +9,7 @@ import { useRemote } from './hooks/useRemote.js'
 import { HomePage } from './pages/HomePage.jsx'
 import { LibraryPage } from './pages/LibraryPage.jsx'
 import { NotFoundPage } from './pages/NotFoundPage.jsx'
+import { PlayerProvider } from './player/PlayerProvider.jsx'
 import { SearchPage } from './pages/SearchPage.jsx'
 import { SettingsPage } from './pages/SettingsPage.jsx'
 import { SetupPage } from './pages/SetupPage.jsx'
@@ -119,16 +120,18 @@ export default function App() {
 
   return (
     <NocturneContext.Provider value={contextValue}>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route index element={<HomePage />} />
-          <Route path="library/:key" element={<LibraryPage />} />
-          <Route path="search" element={<SearchPage />} />
-          <Route path="title/:key" element={<TitlePage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
-      </Routes>
+      <PlayerProvider>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route index element={<HomePage />} />
+            <Route path="library/:key" element={<LibraryPage />} />
+            <Route path="search" element={<SearchPage />} />
+            <Route path="title/:key" element={<TitlePage />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
+        </Routes>
+      </PlayerProvider>
     </NocturneContext.Provider>
   )
 }

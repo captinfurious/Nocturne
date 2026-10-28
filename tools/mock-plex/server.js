@@ -1,3 +1,6 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import express from 'express'
 import {
   childrenFor,
@@ -16,6 +19,11 @@ import { renderArt } from './art.js'
 const PORT = Number(process.env.MOCK_PLEX_PORT) || 32499
 const TOKEN = 'mock-plex-token-1234567890'
 const MACHINE_ID = 'mock-machine-nocturne-001'
+const HERE = path.dirname(fileURLToPath(import.meta.url))
+const SAMPLE_VIDEO = path.join(HERE, 'media', 'sample.mp4')
+const HLS_DIR = path.join(HERE, 'media', 'hls')
+const HLS_INDEX = path.join(HLS_DIR, 'index.m3u8')
+const HLS_SESSION = 'mock-transcode-session'
 const app = express()
 const pins = new Map()
 let nextPin = 4000
@@ -259,6 +267,98 @@ app.get('/tv/api/v2/resources', authorize, (req, res) => {
 
 app.get('/tv/api/v2/user', authorize, (req, res) => {
   res.json({ username: 'nocturne_tester', title: 'Nocturne Tester' })
+})
+
+app.get('/library/parts/:id/:name', authorize, (req, res) => {
+  if (req.params.id !== '104' || !fs.existsSync(SAMPLE_VIDEO)) {
+    res.status(404).json({ error: 'Mock media file not found.' })
+    return
+  }
+  res.setHeader('Cache-Control', 'no-store')
+  res.sendFile(SAMPLE_VIDEO)
+})
+
+app.use((req, res, next) => {
+  const transcodePath = req.path.startsWith('/video/:/transcode/')
+  const timelinePath = req.path === '/:/timeline' || req.path === '/:/scrobble'
+  if (!transcodePath && !timelinePath) {
+    next()
+    return
+  }
+
+  if (req.get('X-Plex-Token') !== TOKEN) {
+    res.status(401).json({ error: 'Mock Plex token is missing or invalid.' })
+    return
+  }
+
+  if (timelinePath) {
+    res.json({})
+    return
+  }
+
+  if (req.path === '/video/:/transcode/universal/start.m3u8') {
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl')
+    res.setHeader('Cache-Control', 'no-store')
+    res.send([
+      '#EXTM3U',
+      '#EXT-X-STREAM-INF:BANDWIDTH=4500000,RESOLUTION=1280x720,CODECS="avc1.4d401f,mp4a.40.2"',
+      `session/${HLS_SESSION}/base/index.m3u8?X-Plex-Token=${TOKEN}`,
+      '',
+    ].join('\n'))
+    return
+  }
+
+  if (req.path === `/video/:/transcode/universal/session/${HLS_SESSION}/base/index.m3u8`) {
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl')
+    res.setHeader('Cache-Control', 'no-store')
+    if (fs.existsSync(HLS_INDEX)) {
+      res.sendFile(HLS_INDEX)
+      return
+    }
+    const segments = Array.from({ length: 8 }, (_, index) => [
+      '#EXTINF:4.0,',
+      index === 0
+        ? `http://127.0.0.1:${PORT}/video/:/transcode/universal/session/${HLS_SESSION}/base/${index}.ts?X-Plex-Token=${TOKEN}`
+        : `${index}.ts`,
+    ]).flat()
+    res.send([
+      '#EXTM3U',
+      '#EXT-X-VERSION:3',
+      '#EXT-X-TARGETDURATION:4',
+      '#EXT-X-MEDIA-SEQUENCE:0',
+      '#EXT-X-PLAYLIST-TYPE:VOD',
+      ...segments,
+      '#EXT-X-ENDLIST',
+      '',
+    ].join('\n'))
+    return
+  }
+
+  if (
+    req.path.startsWith(`/video/:/transcode/universal/session/${HLS_SESSION}/base/`)
+    && req.path.endsWith('.ts')
+  ) {
+    const name = path.basename(req.path)
+    const segmentFile = path.join(HLS_DIR, name)
+    if (/^seg\d+\.ts$/.test(name) && fs.existsSync(segmentFile)) {
+      res.sendFile(segmentFile)
+      return
+    }
+    res.setHeader('Content-Type', 'video/mp2t')
+    res.setHeader('Cache-Control', 'no-store')
+    res.send(Buffer.alloc(188 * 16, 0x47))
+    return
+  }
+
+  if (
+    req.path === '/video/:/transcode/universal/stop'
+    || req.path === '/video/:/transcode/segmented/ping'
+  ) {
+    res.json({})
+    return
+  }
+
+  res.status(404).json({ error: `Mock transcode route not found: ${req.path}` })
 })
 
 app.use((req, res) => {

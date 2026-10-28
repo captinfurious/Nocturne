@@ -507,6 +507,7 @@
   justify-content: center;
   width: 30px;
   height: 30px;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 50%;
   background: rgba(245, 241, 255, 0.94);

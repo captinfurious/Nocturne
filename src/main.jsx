@@ -5,6 +5,7 @@ import './styles/global.css'
 import './styles/layout.css'
 import './styles/components.css'
 import './styles/pages.css'
+import './styles/player.css'
 import App from './App.jsx'
 import { ErrorBoundary } from './components/ErrorBoundary.jsx'
 

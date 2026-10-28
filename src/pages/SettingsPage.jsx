@@ -174,18 +174,19 @@ export function SettingsPage() {
             <span className="settings-icon"><MonitorPlay size={19} /></span>
             <div>
               <p className="eyebrow">Playback</p>
-              <h2>The projector stays with Plex</h2>
+              <h2>Your own screening room</h2>
             </div>
           </div>
           <p className="settings-card__copy">
-            For a reliable first release, every Play action opens the exact title
-            in Plex Web. That means your existing codecs, subtitles, audio tracks,
-            resume points, and Plex user profiles all keep working.
+            Play now opens Nocturne’s built-in player. Files the browser can already
+            play are streamed directly from Plex; everything else is transcoded by
+            your Plex server into a compatible stream. Your Plex token never reaches
+            the browser.
           </p>
           <ul className="settings-list">
-            <li>Resume progress is read from Plex.</li>
-            <li>Watching in Nocturne still updates Plex history.</li>
-            <li>A native Nocturne player can replace this handoff later.</li>
+            <li>Resume points are read from Plex when playback starts.</li>
+            <li>Progress and finished titles are written back to Plex history.</li>
+            <li>Subtitles follow your Plex defaults. External subtitle tracks are not selectable yet.</li>
           </ul>
           <a
             className="small-link"

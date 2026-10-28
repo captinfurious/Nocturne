@@ -113,6 +113,30 @@ export const api = {
     return request('/api/auth/disconnect', { method: 'POST', signal })
   },
 
+  startPlayback(ratingKey, offsetMs = 0, signal) {
+    return request('/api/player', {
+      method: 'POST',
+      body: { ratingKey, offsetMs },
+      signal,
+    })
+  },
+
+  playbackProgress(sessionId, { timeMs, state }, signal) {
+    return request(`/api/player/${encodeURIComponent(sessionId)}/progress`, {
+      method: 'POST',
+      body: { timeMs, state },
+      signal,
+    })
+  },
+
+  stopPlayback(sessionId, { timeMs, completed = false }, signal) {
+    return request(`/api/player/${encodeURIComponent(sessionId)}/stop`, {
+      method: 'POST',
+      body: { timeMs, completed },
+      signal,
+    })
+  },
+
   playUrl(ratingKey) {
     return `/api/play/${encodeURIComponent(ratingKey)}`
   },

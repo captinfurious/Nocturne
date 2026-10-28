@@ -18,6 +18,7 @@ import { DetailSkeleton, InlineSpinner } from '../components/Skeleton.jsx'
 import { ErrorState, StatePanel } from '../components/StateMessage.jsx'
 import { usePageTitle } from '../hooks/usePageTitle.js'
 import { useRemote } from '../hooks/useRemote.js'
+import { usePlayer } from '../player/PlayerProvider.jsx'
 import {
   formatDate,
   formatRating,
@@ -55,6 +56,7 @@ function EpisodeListSkeleton() {
 export function TitlePage() {
   const { key } = useParams()
   const navigate = useNavigate()
+  const { openPlayer } = usePlayer()
   const [seasonKey, setSeasonKey] = useState(null)
 
   const request = useCallback((signal) => api.title(key, signal), [key])
@@ -126,8 +128,8 @@ export function TitlePage() {
       ? `${nextEpisode.progress > 0 ? 'Resume' : 'Play'} ${nextEpisode.episodeCode || 'episode'}`
       : 'Open in Plex'
     : movieProgress > 0
-      ? 'Resume on Plex'
-      : 'Play on Plex'
+      ? 'Resume'
+      : 'Play now'
 
   return (
     <div className="title-page">
@@ -187,15 +189,26 @@ export function TitlePage() {
               </div>
 
               <div className="title-actions">
-                <a
-                  className="button button--primary button--large"
-                  href={api.playUrl(playTarget.ratingKey)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Play size={19} fill="currentColor" aria-hidden="true" />
-                  {playLabel}
-                </a>
+                {isShow && !nextEpisode ? (
+                  <a
+                    className="button button--primary button--large"
+                    href={api.playUrl(item.ratingKey)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <ExternalLink size={19} aria-hidden="true" />
+                    Open in Plex
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    className="button button--primary button--large"
+                    onClick={() => openPlayer(playTarget)}
+                  >
+                    <Play size={19} fill="currentColor" aria-hidden="true" />
+                    {playLabel}
+                  </button>
+                )}
                 {isShow ? (
                   <a
                     className="button button--glass button--large"
@@ -209,7 +222,7 @@ export function TitlePage() {
                 ) : null}
               </div>
               <p className="title-playback-note">
-                Playback continues in Plex Web. Nocturne remembers progress through Plex.
+                Plays inside Nocturne. Progress is written back to Plex as you watch.
               </p>
 
               <p className="title-summary">{item.summary || 'No description is available for this title yet.'}</p>
@@ -307,12 +320,11 @@ export function TitlePage() {
                   const watched = episode.viewCount > 0 && progress <= 0
                   return (
                     <article className="episode" key={episode.ratingKey}>
-                      <a
+                      <button
+                        type="button"
                         className="episode__thumb"
-                        href={api.playUrl(episode.ratingKey)}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label={`Play ${episode.episodeCode || ''} ${episode.episodeTitle || ''} in Plex`}
+                        onClick={() => openPlayer(episode)}
+                        aria-label={`Play ${episode.episodeCode || ''} ${episode.episodeTitle || ''}`}
                       >
                         <Artwork
                           src={episode.images?.episode || episode.images?.wide}
@@ -329,7 +341,7 @@ export function TitlePage() {
                             <span style={{ width: `${Math.min(100, progress * 100)}%` }} />
                           </span>
                         ) : null}
-                      </a>
+                      </button>
 
                       <div className="episode__body">
                         <div className="episode__meta">
@@ -347,15 +359,14 @@ export function TitlePage() {
                         {episode.summary ? <p>{episode.summary}</p> : null}
                       </div>
 
-                      <a
+                      <button
+                        type="button"
                         className="episode__action"
-                        href={api.playUrl(episode.ratingKey)}
-                        target="_blank"
-                        rel="noreferrer"
+                        onClick={() => openPlayer(episode)}
                       >
                         <Play size={15} fill="currentColor" />
                         {progress > 0 ? 'Resume' : 'Play'}
-                      </a>
+                      </button>
                     </article>
                   )
                 })}

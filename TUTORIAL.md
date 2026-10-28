@@ -268,17 +268,34 @@ Press `Ctrl+C` in PowerShell to stop Nocturne. Closing the window also stops it.
 
 ## Playback in Nocturne
 
-Nocturne reads your Plex library, artwork, metadata, Continue Watching progress, and episodes.
-When you press a Play or Resume button, Nocturne opens the exact movie or episode in **Plex Web**.
+Press **Play** or **Resume** and the video opens inside Nocturne. You do not need to switch to
+Plex Web. Plex is still doing the actual work behind the scenes.
 
-Playback stays inside Plex in this version. That is deliberate:
+Nocturne uses two playback paths automatically:
 
-- Plex handles codecs, direct play, transcoding, subtitles, and audio tracks.
-- Resume points stay in the same place Nocturne reads them from.
-- Nothing about your Plex installation or media files is modified.
+- **Direct play** — the file is already browser-friendly (usually MP4 with H.264 video and AAC
+  audio). Playback starts immediately.
+- **Plex transcode** — the file uses a container or codec the browser cannot handle (very common
+  for MKV or HEVC). Plex converts it while you watch, and Nocturne displays a small
+  **Plex transcode** badge.
 
-An embedded player inside Nocturne can be added later, but it is a much larger project than the
-first release.
+You can play, pause, skip 10 seconds, drag the progress bar, change the volume, and go fullscreen.
+The keyboard shortcuts are **Space** (play/pause), **← / →** (10 seconds), **J / L** (30 seconds),
+**↑ / ↓** (volume), **M** (mute), **F** (fullscreen), and **Esc** (close).
+
+**Progress is saved to Plex.** If you stop halfway through, the title appears in Continue Watching
+at that position. If you watch to the end, Plex marks it watched.
+
+A few things to know:
+
+- A transcoded video may take a few seconds to start, especially for 4K or HEVC files.
+- Seeking in a transcoded video restarts the conversion at the new position, so it can pause for a
+  few seconds. Direct-play files seek instantly.
+- Subtitle and audio-track selection are not available yet. Plex's default streams are used.
+- If a title cannot be streamed, use **Open in Plex** from the player's error screen.
+
+Nocturne only reads and streams from Plex. It never changes your media files, codecs, or Plex
+library settings.
 
 ---
 
@@ -343,6 +360,22 @@ Get-NetTCPConnection -LocalPort 8787,5173 -ErrorAction SilentlyContinue |
 
 If you intentionally use a different port, set `PORT=8788` in a local `.env` file. The Vite
 proxy reads the same setting. Restart Nocturne after changing it.
+
+### Playback will not start or keeps buffering
+
+- Confirm Plex Media Server is running and can play the same title in Plex Web.
+- A transcode needs CPU time. On a low-power PC, 4K files may take a while to start; try a 1080p
+  title first.
+- Close other browser tabs using the player, then retry. Each open player keeps a Plex transcode
+  session alive.
+- If Nocturne shows a technical error, open **Plex Web** with the same title once. If it also fails
+  there, the problem is in Plex or the media file, not Nocturne.
+- Use **Open in Plex** on the error screen as a fallback while you investigate.
+
+### The player is silent
+
+Click the speaker icon in the player controls or press **M**. Browsers sometimes block autoplay with
+sound until you interact with the page. Click the big play button if it appears.
 
 ### My posters are missing
 

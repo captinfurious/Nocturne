@@ -20,6 +20,14 @@ import {
 } from './nocturne.js'
 import { fetchPlexImage, getLibraries, plexWebUrl, probePlexServer } from './plex.js'
 import { PlexError, checkPin, createPin, discoverPlexServer } from './plexAuth.js'
+import {
+  progressPlayback,
+  startPlayback,
+  stopPlayback,
+  streamDirect,
+  streamHls,
+  streamMaster,
+} from './player.js'
 
 const app = express()
 const PORT = Number(process.env.PORT) || 8787
@@ -103,6 +111,16 @@ function sectionKey(value) {
     throw new PlexError('That Plex library has an invalid identifier.', {
       status: 400,
       code: 'BAD_SECTION_KEY',
+    })
+  }
+  return String(value)
+}
+
+function playbackId(value) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value))) {
+    throw new PlexError('That playback session is not valid.', {
+      status: 400,
+      code: 'BAD_PLAYBACK_SESSION',
     })
   }
   return String(value)
@@ -338,6 +356,47 @@ app.post('/api/auth/disconnect', (req, res) => {
   res.json({ status: 'disconnected', ...getPublicStatus() })
 })
 
+app.post('/api/player', async (req, res) => {
+  requireConfigured()
+  const key = ratingKey(req.body?.ratingKey)
+  const offsetMs = Math.max(0, Math.min(Number(req.body?.offsetMs) || 0, 24 * 60 * 60 * 1000))
+  const session = await startPlayback(key, { offsetMs })
+  res.status(201).json({ session })
+})
+
+app.get('/api/player/:id/master.m3u8', async (req, res) => {
+  requireConfigured()
+  await streamMaster(req, res, playbackId(req.params.id))
+})
+
+app.get('/api/player/:id/hls', async (req, res) => {
+  requireConfigured()
+  await streamHls(req, res, playbackId(req.params.id))
+})
+
+app.get('/api/player/:id/stream', async (req, res) => {
+  requireConfigured()
+  await streamDirect(req, res, playbackId(req.params.id))
+})
+
+app.post('/api/player/:id/progress', async (req, res) => {
+  requireConfigured()
+  const result = await progressPlayback(playbackId(req.params.id), {
+    timeMs: req.body?.timeMs,
+    state: req.body?.state,
+  })
+  res.json(result)
+})
+
+app.post('/api/player/:id/stop', async (req, res) => {
+  requireConfigured()
+  const result = await stopPlayback(playbackId(req.params.id), {
+    timeMs: req.body?.timeMs,
+    completed: Boolean(req.body?.completed),
+  })
+  res.json(result)
+})
+
 app.get('/api/play/:key', async (req, res) => {
   requireConfigured()
   const url = await plexWebUrl(ratingKey(req.params.key))
@@ -357,10 +416,12 @@ if (fs.existsSync(indexFile)) {
     "object-src 'none'",
     "frame-ancestors 'none'",
     "img-src 'self' data:",
+    "media-src 'self' blob:",
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
     "script-src 'self'",
-    "connect-src 'self'",
+    "connect-src 'self' blob:",
+    "worker-src 'self' blob:",
   ].join('; ')
 
   app.use((req, res, next) => {

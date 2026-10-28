@@ -2,6 +2,7 @@ import { ExternalLink, Info, Play, Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { api } from '../api.js'
 import { formatRating, formatRuntime, formatYear } from '../lib/format.js'
+import { usePlayer } from '../player/PlayerProvider.jsx'
 import { Artwork } from './Artwork.jsx'
 
 function qualityLabel(resolution) {
@@ -14,6 +15,8 @@ function qualityLabel(resolution) {
 }
 
 export function Hero({ hero }) {
+  const { openPlayer } = usePlayer()
+
   if (!hero) return null
 
   const rating = formatRating(hero.audienceRating || hero.rating)
@@ -72,15 +75,14 @@ export function Hero({ hero }) {
         <p className="hero__summary">{hero.summary}</p>
         <div className="hero__actions">
           {isMovie ? (
-            <a
+            <button
+              type="button"
               className="button button--primary button--large"
-              href={api.playUrl(hero.ratingKey)}
-              target="_blank"
-              rel="noreferrer"
+              onClick={() => openPlayer(hero)}
             >
               <Play size={19} fill="currentColor" aria-hidden="true" />
-              Play on Plex
-            </a>
+              {hero.progress > 0 ? 'Resume' : 'Play now'}
+            </button>
           ) : (
             <Link className="button button--primary button--large" to={`/title/${hero.ratingKey}`}>
               <Play size={19} fill="currentColor" aria-hidden="true" />
@@ -107,7 +109,7 @@ export function Hero({ hero }) {
         </div>
         <p className="hero__playback-note">
           <span className="status-dot status-dot--violet" aria-hidden="true" />
-          Playback opens securely in Plex Web
+          Plays inside Nocturne · progress syncs with Plex
         </p>
       </div>
 

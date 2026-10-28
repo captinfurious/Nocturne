@@ -1,6 +1,5 @@
 import { Play, Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { api } from '../api.js'
 import {
   detailHref,
   formatEpisodeCode,
@@ -11,9 +10,11 @@ import {
   isPlayable,
   itemLabel,
 } from '../lib/format.js'
+import { usePlayer } from '../player/PlayerProvider.jsx'
 import { Artwork } from './Artwork.jsx'
 
 export function MediaCard({ item, layout = 'poster', variant = 'rail', index = 0 }) {
+  const { openPlayer } = usePlayer()
   const playable = isPlayable(item)
   const href = detailHref(item)
   const rating = formatRating(item.audienceRating || item.rating)
@@ -75,16 +76,15 @@ export function MediaCard({ item, layout = 'poster', variant = 'rail', index = 0
       </div>
 
       {playable ? (
-        <a
+        <button
+          type="button"
           className="media-card__play"
-          href={api.playUrl(item.ratingKey)}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`${item.progress > 0 ? 'Resume' : 'Play'} ${label} in Plex`}
-          title="Play in Plex"
+          onClick={() => openPlayer(item)}
+          aria-label={`${item.progress > 0 ? 'Resume' : 'Play'} ${label}`}
+          title="Play now"
         >
           <Play size={17} fill="currentColor" aria-hidden="true" />
-        </a>
+        </button>
       ) : null}
 
       {progress > 0 && progress < 0.995 ? (
