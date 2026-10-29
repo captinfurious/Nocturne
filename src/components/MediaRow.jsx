@@ -8,6 +8,7 @@ export function MediaRow({ row, viewAllHref = null, index = 0 }) {
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
   const titleId = useId()
+  const ranked = row.layout === 'ranked'
 
   const updateScrollState = useCallback(() => {
     const rail = railRef.current
@@ -30,7 +31,7 @@ export function MediaRow({ row, viewAllHref = null, index = 0 }) {
     const rail = railRef.current
     if (!rail) return
     rail.scrollBy({
-      left: rail.clientWidth * 0.82 * direction,
+      left: rail.clientWidth * 0.86 * direction,
       behavior: 'smooth',
     })
   }
@@ -39,47 +40,44 @@ export function MediaRow({ row, viewAllHref = null, index = 0 }) {
 
   return (
     <section
-      className="media-row"
+      className={`media-row${ranked ? ' media-row--ranked' : ''}`}
       aria-labelledby={titleId}
-      style={{ '--row-delay': `${Math.min(index * 55, 300)}ms` }}
+      style={{ '--row-delay': `${Math.min(index * 45, 260)}ms` }}
     >
       <div className="media-row__header">
-        <div className="media-row__heading">
-          <h2 id={titleId}>{row.title}</h2>
-          {row.subtitle ? <p>{row.subtitle}</p> : null}
-        </div>
+        <h2 id={titleId}>{row.title}</h2>
         <div className="media-row__tools">
           {viewAllHref ? (
             <Link to={viewAllHref} className="media-row__view-all">
-              View all
-              <ArrowRight size={14} />
+              Explore all
+              <ArrowRight size={13} />
             </Link>
           ) : null}
           <div className="media-row__arrows">
             <button
               type="button"
-              className="icon-button"
+              className="media-row__arrow"
               onClick={() => scroll(-1)}
               disabled={!canScrollLeft}
               aria-label={`Scroll ${row.title} left`}
             >
-              <ChevronLeft size={18} />
+              <ChevronLeft size={19} />
             </button>
             <button
               type="button"
-              className="icon-button"
+              className="media-row__arrow"
               onClick={() => scroll(1)}
               disabled={!canScrollRight}
               aria-label={`Scroll ${row.title} right`}
             >
-              <ChevronRight size={18} />
+              <ChevronRight size={19} />
             </button>
           </div>
         </div>
       </div>
 
       <div
-        className="media-row__rail"
+        className={`media-row__rail${ranked ? ' media-row__rail--ranked' : ''}`}
         ref={railRef}
         onScroll={updateScrollState}
         tabIndex={0}
@@ -89,8 +87,9 @@ export function MediaRow({ row, viewAllHref = null, index = 0 }) {
           <MediaCard
             key={`${row.id}-${item.ratingKey}`}
             item={item}
-            layout={row.layout || 'poster'}
+            layout={ranked ? 'ranked' : row.layout || 'poster'}
             index={cardIndex}
+            rank={ranked ? cardIndex + 1 : null}
           />
         ))}
       </div>

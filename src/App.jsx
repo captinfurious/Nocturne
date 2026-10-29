@@ -8,6 +8,7 @@ import { NocturneMark } from './components/Logo.jsx'
 import { useRemote } from './hooks/useRemote.js'
 import { HomePage } from './pages/HomePage.jsx'
 import { LibraryPage } from './pages/LibraryPage.jsx'
+import { MyListPage } from './pages/MyListPage.jsx'
 import { NotFoundPage } from './pages/NotFoundPage.jsx'
 import { PlayerProvider } from './player/PlayerProvider.jsx'
 import { SearchPage } from './pages/SearchPage.jsx'
@@ -126,6 +127,7 @@ export default function App() {
             <Route index element={<HomePage />} />
             <Route path="library/:key" element={<LibraryPage />} />
             <Route path="search" element={<SearchPage />} />
+            <Route path="my-list" element={<MyListPage />} />
             <Route path="title/:key" element={<TitlePage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFoundPage />} />

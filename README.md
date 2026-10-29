@@ -2,10 +2,11 @@
 
 Nocturne is a private, cinematic streaming front end for an existing **Plex Media Server**.
 Plex keeps the files, metadata, transcoder, and watch history. Nocturne gives that library a
-distinct interface: a large featured hero, artwork rows, real resume progress, search, library
-browsing, title and season details, and an in-app player that streams straight from Plex.
+distinct interface: a cinematic hero, a black-and-red top-navigation layout, horizontal artwork
+rows, a ranked Top 10, My List, real resume progress, search, library browsing, title and season
+details, and an in-app player that streams straight from Plex.
 
-**Current version:** 1.0.0 — desktop and responsive web with in-app playback, focused on Windows + Plex.
+**Current version:** 1.1.0 — desktop and responsive web with the streaming redesign, My List, and in-app playback, focused on Windows + Plex.
 
 **New to Nocturne?** Follow the step-by-step **[download and Windows installation guide](TUTORIAL.md)**.
 
@@ -19,10 +20,15 @@ browsing, title and season details, and an in-app player that streams straight f
 - Cinematic home page built entirely from your Plex data:
   - Continue Watching from Plex On Deck
   - Recently Added
+  - Top 10 in Your Library Today, with ranked artwork
   - Popular Movies
   - TV Shows
   - Top Rated
   - Up to four populated genre collections
+- Black-and-red streaming interface with a top navigation bar, hover actions, and landscape artwork cards.
+- A full library browser on Home: every Plex movie and TV library gets a tab, every title is listed,
+  and more pages load automatically as you scroll.
+- My List, saved in this browser on this PC, with an automatic My List home row.
 - Real posters, backdrops, summaries, ratings, years, content ratings, cast, and genres.
 - Search across the Plex library, including episode names.
 - Paginated movie and TV library pages with sorting.
@@ -266,11 +272,11 @@ Nocturne/
 │  ├─ cache.js        Short-lived in-memory cache for Plex reads
 │  └─ config.js       Local data/config.json management; never exposed to the browser
 ├─ src/
-│  ├─ components/     App shell, hero, rows, cards, player overlay, skeletons, states
+│  ├─ components/     App shell, top nav, hero, rows, cards, player overlay, skeletons, states
 │  ├─ player/         Player state provider shared by every Play button
-│  ├─ pages/          Home, Library, Search, Title, Setup, Settings, Not Found
+│  ├─ pages/          Home, Library, Search, My List, Title, Setup, Settings, Not Found
 │  ├─ hooks/          Data loading and page title hooks
-│  ├─ lib/            Formatting and media helpers
+│  ├─ lib/            Formatting, media helpers, and the localStorage My List store
 │  ├─ styles/         Design tokens, shell, components, page styles
 │  ├─ api.js          Browser API client (no token handling)
 │  └─ App.jsx         Route and health bootstrapping
@@ -418,8 +424,9 @@ This build was verified end to end against an isolated mock Plex + plex.tv API:
   the ended state.
 - In-app HLS playback against a mock transcode with a real HLS playlist and MPEG-TS segment.
 - Playback-session authorization, invalid-path rejection, session expiry, and Plex stop calls.
-- Browser rendering, navigation, live search, season switching, settings actions, mobile layout,
-  and console errors.
+- The black-and-red redesign: top navigation, hero, hover cards, ranked Top 10, My List persistence,
+  the all-library Home browser and its automatic paging, title pages, search, library, settings,
+  mobile layout, and console errors.
 - Production build and local Express hosting.
 
 The actual Plex server at `127.0.0.1:32400` on your Windows PC is not reachable from the build
@@ -472,9 +479,15 @@ player and the `/api/player` session API are the reusable playback layer for tho
 - Subtitle and audio-track selection are not implemented. Plex's default streams are used.
 - Seeking in a transcoded title restarts the Plex transcode and takes a few seconds.
 - Single Plex account and single selected server; switching Plex Home users is not implemented yet.
-- Home rows use the first movie library and first TV library (all supported libraries appear in the
-  sidebar and have their own pages).
-- No watchlist, rating editing, collection management, or Plex library scanning controls.
+- My List is stored in this browser, not in Plex. It does not sync between browsers or Plex users
+  and is not the same as a Plex watchlist.
+- The top navigation shortcuts use the first movie library and first TV library, but the Home
+  library browser includes every movie and TV library. Additional libraries also have their own
+  pages at `/library/<key>`.
+- Genre rows are built from the first movie and first TV library; the full Home browser still covers
+  every title in every library.
+- No profiles, notifications, rating editing, collection management, or Plex library scanning controls.
+- Autoplay next episode and skip-intro are not implemented.
 - No Plex music/photo libraries. Nocturne is film and TV focused.
 - The UI is optimized for desktop/mobile/large screens; full remote-control navigation is future
   work.

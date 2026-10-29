@@ -162,7 +162,7 @@ export function SearchPage() {
           icon={SearchX}
           eyebrow="Nothing found"
           title={`No match for “${q}”`}
-          message="Try a shorter title, check the spelling, or browse a library from the sidebar. Nocturne searches only what is already in your Plex library."
+          message="Try a shorter title, check the spelling, or browse a library from the top navigation. Nocturne searches only what is already in your Plex library."
           action={
             <button type="button" className="button button--secondary" onClick={clear}>
               Clear search

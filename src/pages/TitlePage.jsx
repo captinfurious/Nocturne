@@ -7,6 +7,7 @@ import {
   Film,
   Layers,
   Play,
+  Plus,
   Star,
   Tv,
 } from 'lucide-react'
@@ -26,6 +27,7 @@ import {
   formatYear,
   initials,
 } from '../lib/format.js'
+import { useMyList } from '../lib/myList.js'
 
 function qualityLabel(resolution) {
   if (!resolution) return null
@@ -57,6 +59,7 @@ export function TitlePage() {
   const { key } = useParams()
   const navigate = useNavigate()
   const { openPlayer } = usePlayer()
+  const { has, toggle } = useMyList()
   const [seasonKey, setSeasonKey] = useState(null)
 
   const request = useCallback((signal) => api.title(key, signal), [key])
@@ -129,7 +132,8 @@ export function TitlePage() {
       : 'Open in Plex'
     : movieProgress > 0
       ? 'Resume'
-      : 'Play now'
+      : 'Play'
+  const saved = has(item.ratingKey)
 
   return (
     <div className="title-page">
@@ -154,16 +158,6 @@ export function TitlePage() {
           </Link>
 
           <div className="title-hero__grid">
-            <div className="title-poster">
-              <Artwork
-                src={item.images?.poster}
-                alt={`${item.title} poster`}
-                className="title-poster__image"
-                fallbackLabel={initials(item.title)}
-              />
-              <span className="title-poster__edge" aria-hidden="true" />
-            </div>
-
             <div className="title-copy">
               <p className="title-kicker">
                 <TypeIcon size={14} />
@@ -209,20 +203,31 @@ export function TitlePage() {
                     {playLabel}
                   </button>
                 )}
-                {isShow ? (
-                  <a
-                    className="button button--glass button--large"
-                    href={api.playUrl(item.ratingKey)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <ExternalLink size={17} aria-hidden="true" />
-                    Series in Plex
-                  </a>
-                ) : null}
+                <button
+                  type="button"
+                  className={`button button--glass button--large${saved ? ' is-saved' : ''}`}
+                  onClick={() => toggle(item)}
+                  aria-pressed={saved}
+                >
+                  {saved ? <Check size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
+                  {saved ? 'In My List' : 'My List'}
+                </button>
               </div>
               <p className="title-playback-note">
                 Plays inside Nocturne. Progress is written back to Plex as you watch.
+                {isShow ? (
+                  <>
+                    {' '}
+                    <a
+                      className="title-plex-link"
+                      href={api.playUrl(item.ratingKey)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open the series in Plex <ExternalLink size={10} aria-hidden="true" />
+                    </a>
+                  </>
+                ) : null}
               </p>
 
               <p className="title-summary">{item.summary || 'No description is available for this title yet.'}</p>

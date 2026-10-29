@@ -1,6 +1,6 @@
 {
   "name": "nocturne",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Nocturne — a custom streaming experience for an existing Plex Media Server.",
   "private": true,
   "type": "module",

@@ -1,41 +1,42 @@
-import { ExternalLink, Info, Play, Star } from 'lucide-react'
+import { Check, Info, Play, Plus, Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { api } from '../api.js'
 import { formatRating, formatRuntime, formatYear } from '../lib/format.js'
+import { useMyList } from '../lib/myList.js'
 import { usePlayer } from '../player/PlayerProvider.jsx'
 import { Artwork } from './Artwork.jsx'
 
 function qualityLabel(resolution) {
-  if (!resolution) return null
+  if (!resolution) return 'HD'
   const value = String(resolution).toLowerCase()
   if (value === '4k') return '4K'
-  if (value === '1080') return '1080p'
-  if (value === '720') return '720p'
+  if (value === '1080') return 'HD'
+  if (value === '720') return 'HD'
   return String(resolution).toUpperCase()
 }
 
 export function Hero({ hero }) {
   const { openPlayer } = usePlayer()
+  const { has, toggle } = useMyList()
 
   if (!hero) return null
 
+  const isMovie = hero.type === 'movie'
   const rating = formatRating(hero.audienceRating || hero.rating)
   const runtime = formatRuntime(hero.duration)
   const year = formatYear(hero.year)
-  const quality = qualityLabel(hero.videoResolution)
-  const isMovie = hero.type === 'movie'
-  const episodeCount = hero.type === 'show' && hero.leafCount ? `${hero.leafCount} episodes` : null
+  const saved = has(hero.ratingKey)
+  const episodeCount = hero.type === 'show' && hero.leafCount
+    ? `${hero.leafCount} ${hero.leafCount === 1 ? 'episode' : 'episodes'}`
+    : null
   const metadata = [
     year,
-    hero.contentRating,
+    isMovie ? runtime : episodeCount,
     rating ? (
       <span className="hero__rating" key="rating">
-        <Star size={13} fill="currentColor" />
+        <Star size={12} fill="currentColor" />
         {rating}
       </span>
     ) : null,
-    isMovie ? runtime : episodeCount,
-    quality,
   ].filter(Boolean)
 
   return (
@@ -50,17 +51,16 @@ export function Hero({ hero }) {
           fallbackLabel={hero.title}
         />
         <div className="hero__wash" aria-hidden="true" />
-        <div className="hero__grain" aria-hidden="true" />
       </div>
 
       <div className="hero__content">
         <p className="hero__eyebrow">
-          <span className="hero__eyebrow-star" aria-hidden="true">✦</span>
-          {hero.eyebrow}
-          <span className="hero__eyebrow-rule" aria-hidden="true" />
-          From your Plex library
+          <span className="hero__eyebrow-tag">Nocturne</span>
+          {hero.eyebrow || (isMovie ? 'Featured film' : 'Featured series')}
         </p>
+
         <h1 id="hero-title" className="hero__title">{hero.title}</h1>
+
         <div className="hero__meta">
           {metadata.map((entry, index) => (
             <span className="hero__meta-item" key={index}>
@@ -69,10 +69,15 @@ export function Hero({ hero }) {
             </span>
           ))}
         </div>
+
         {hero.genres?.length ? (
           <p className="hero__genres">{hero.genres.slice(0, 3).join(' · ')}</p>
         ) : null}
-        <p className="hero__summary">{hero.summary}</p>
+
+        <p className="hero__summary">
+          {hero.summary || 'A title from your Plex library, ready to play.'}
+        </p>
+
         <div className="hero__actions">
           {isMovie ? (
             <button
@@ -80,43 +85,41 @@ export function Hero({ hero }) {
               className="button button--primary button--large"
               onClick={() => openPlayer(hero)}
             >
-              <Play size={19} fill="currentColor" aria-hidden="true" />
-              {hero.progress > 0 ? 'Resume' : 'Play now'}
+              <Play size={20} fill="currentColor" aria-hidden="true" />
+              {hero.progress > 0 ? 'Resume' : 'Play'}
             </button>
           ) : (
             <Link className="button button--primary button--large" to={`/title/${hero.ratingKey}`}>
-              <Play size={19} fill="currentColor" aria-hidden="true" />
+              <Play size={20} fill="currentColor" aria-hidden="true" />
               Explore series
             </Link>
           )}
 
-          {isMovie ? (
-            <Link className="button button--glass button--large" to={`/title/${hero.ratingKey}`}>
-              <Info size={18} aria-hidden="true" />
-              More details
-            </Link>
-          ) : (
-            <a
-              className="button button--glass button--large"
-              href={api.playUrl(hero.ratingKey)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <ExternalLink size={17} aria-hidden="true" />
-              Open in Plex
-            </a>
-          )}
+          <Link className="button button--glass button--large" to={`/title/${hero.ratingKey}`}>
+            <Info size={19} aria-hidden="true" />
+            More Info
+          </Link>
+
+          <button
+            type="button"
+            className={`hero__list-button${saved ? ' is-saved' : ''}`}
+            onClick={() => toggle(hero)}
+            aria-label={saved ? `Remove ${hero.title} from My List` : `Add ${hero.title} to My List`}
+            aria-pressed={saved}
+            title={saved ? 'Remove from My List' : 'Add to My List'}
+          >
+            {saved ? <Check size={19} aria-hidden="true" /> : <Plus size={20} aria-hidden="true" />}
+          </button>
         </div>
+
         <p className="hero__playback-note">
-          <span className="status-dot status-dot--violet" aria-hidden="true" />
-          Plays inside Nocturne · progress syncs with Plex
+          Plays inside Nocturne. Progress syncs with Plex.
         </p>
       </div>
 
-      <div className="hero__index" aria-hidden="true">
-        <span className="hero__index-number">01</span>
-        <span className="hero__index-line" />
-        <span className="hero__index-label">Now showing</span>
+      <div className="hero__ratingbox" aria-label="Title rating">
+        <span>{hero.contentRating || 'NR'}</span>
+        <span>{qualityLabel(hero.videoResolution)}</span>
       </div>
     </section>
   )

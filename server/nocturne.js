@@ -255,7 +255,7 @@ async function buildGenreRows(movieGenres, showGenres, movieSection, showSection
       id: `genre-${genre.type}-${genre.key}`,
       title: genre.title,
       subtitle: genre.type === 'movie' ? 'Film collection' : 'Series collection',
-      layout: 'poster',
+      layout: 'landscape',
       items: items.slice(0, 20),
     })
     if (rows.length >= 4) break
@@ -279,30 +279,44 @@ export async function buildHome() {
     }
   }
 
-  const [onDeck, recentlyAdded, popularContainer, topRatedContainer, showsContainer, movieGenres, showGenres] =
-    await Promise.all([
-      safe(getOnDeck(20), []),
-      safe(getRecentlyAdded(30), []),
-      movieSection
-        ? safe(getSectionItems(movieSection.key, { sort: 'viewCount:desc', size: 20 }), {})
-        : Promise.resolve({}),
-      movieSection
-        ? safe(getSectionItems(movieSection.key, { sort: 'audienceRating:desc', size: 20 }), {})
-        : Promise.resolve({}),
-      showSection
-        ? safe(getSectionItems(showSection.key, { sort: 'addedAt:desc', size: 20 }), {})
-        : Promise.resolve({}),
-      movieSection ? safe(getSectionGenres(movieSection.key), []) : Promise.resolve([]),
-      showSection ? safe(getSectionGenres(showSection.key), []) : Promise.resolve([]),
-    ])
+  const [
+    onDeck,
+    recentlyAdded,
+    popularContainers,
+    topRatedContainers,
+    showsContainers,
+    movieGenres,
+    showGenres,
+  ] = await Promise.all([
+    safe(getOnDeck(20), []),
+    safe(getRecentlyAdded(30), []),
+    Promise.all(
+      movieSections.map((section) =>
+        safe(getSectionItems(section.key, { sort: 'viewCount:desc', size: 20 }), {}),
+      ),
+    ),
+    Promise.all(
+      movieSections.map((section) =>
+        safe(getSectionItems(section.key, { sort: 'audienceRating:desc', size: 20 }), {}),
+      ),
+    ),
+    Promise.all(
+      showSections.map((section) =>
+        safe(getSectionItems(section.key, { sort: 'addedAt:desc', size: 20 }), {}),
+      ),
+    ),
+    movieSection ? safe(getSectionGenres(movieSection.key), []) : Promise.resolve([]),
+    showSection ? safe(getSectionGenres(showSection.key), []) : Promise.resolve([]),
+  ])
 
-  const popular = popularContainer.Metadata || []
-  const topRated = topRatedContainer.Metadata || []
-  const shows = showsContainer.Metadata || []
+  const popular = uniqueItems(popularContainers.flatMap((container) => container.Metadata || []))
+  const topRated = uniqueItems(topRatedContainers.flatMap((container) => container.Metadata || []))
+  const shows = uniqueItems(showsContainers.flatMap((container) => container.Metadata || []))
   const recent = latestPerSeries(
     recentlyAdded.filter((item) => ['movie', 'show', 'episode'].includes(item.type)),
   )
   const continueItems = onDeck.filter((item) => ['movie', 'episode'].includes(item.type))
+  const ranked = uniqueItems([...popular, ...shows, ...topRated]).slice(0, 10)
 
   const rows = [
     row(
@@ -317,15 +331,23 @@ export async function buildHome() {
       'recently-added',
       'Recently Added',
       'The newest arrivals in your Plex library',
-      'poster',
+      'landscape',
       recent,
       24,
+    ),
+    row(
+      'top-10',
+      'Top 10 in Your Library Today',
+      null,
+      'ranked',
+      ranked,
+      10,
     ),
     row(
       'popular-movies',
       'Popular Movies',
       'What gets watched most on your server',
-      'poster',
+      'landscape',
       popular,
       20,
     ),
@@ -333,7 +355,7 @@ export async function buildHome() {
       'tv-shows',
       'TV Shows',
       showSection ? 'Series ready to binge' : null,
-      'poster',
+      'landscape',
       shows,
       20,
     ),
@@ -341,7 +363,7 @@ export async function buildHome() {
       'top-rated',
       'Top Rated',
       'The films your library rates highest',
-      'poster',
+      'landscape',
       topRated,
       20,
     ),

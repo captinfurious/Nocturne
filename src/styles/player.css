@@ -17,7 +17,7 @@ body.is-player-open {
   position: absolute;
   inset: -60px;
   z-index: -1;
-  background-color: #050408;
+  background-color: #000000;
   background-position: center;
   background-size: cover;
   opacity: 0.55;
@@ -113,13 +113,13 @@ body.is-player-open {
 .player-icon-button--primary {
   width: 46px;
   height: 46px;
-  background: #f4f0ff;
-  color: #0a0710;
+  background: #ffffff;
+  color: #000000;
 }
 
 .player-icon-button--primary:hover {
-  background: #fff;
-  color: #0a0710;
+  background: rgba(255, 255, 255, 0.8);
+  color: #000000;
 }
 
 .player-heading {
@@ -131,7 +131,7 @@ body.is-player-open {
 
 .player-heading__eyebrow {
   margin-bottom: 5px;
-  color: rgba(196, 173, 255, 0.9);
+  color: rgba(255, 255, 255, 0.68);
   font-size: 8.5px;
   font-weight: 700;
   letter-spacing: 0.19em;
@@ -195,7 +195,7 @@ body.is-player-open {
 }
 
 .player-center-play:hover {
-  background: rgba(154, 123, 255, 0.32);
+  background: rgba(229, 9, 20, 0.55);
   transform: translate(-50%, -50%) scale(1.05);
 }
 
@@ -243,8 +243,8 @@ body.is-player-open {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 20px;
   background:
-    radial-gradient(120% 100% at 100% 0%, rgba(154, 123, 255, 0.1), transparent 55%),
-    rgba(9, 7, 13, 0.9);
+    radial-gradient(120% 100% at 100% 0%, rgba(229, 9, 20, 0.1), transparent 55%),
+    rgba(18, 18, 18, 0.94);
   box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6);
   transform: translate(-50%, -50%);
   backdrop-filter: blur(22px);
@@ -346,8 +346,8 @@ body.is-player-open {
 }
 
 .player-scrub__played {
-  background: linear-gradient(90deg, #8563f4, #c4adff);
-  box-shadow: 0 0 14px rgba(154, 123, 255, 0.55);
+  background: var(--accent);
+  box-shadow: 0 0 14px rgba(229, 9, 20, 0.5);
 }
 
 .player-scrub:hover .player-scrub__track,

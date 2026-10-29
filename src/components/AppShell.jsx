@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react'
-import { Film, House, RefreshCw, Search, Tv, WifiOff } from 'lucide-react'
+import { useEffect } from 'react'
+import { Film, House, ListPlus, RefreshCw, Search, Tv, WifiOff } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useNocturne } from '../app-context.js'
-import { Sidebar } from './Sidebar.jsx'
-import { Topbar } from './Topbar.jsx'
+import { TopNav } from './TopNav.jsx'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -19,47 +18,14 @@ function mobileNavClass({ isActive }) {
 
 export function AppShell() {
   const { health, libraries, reloadHealth } = useNocturne()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const location = useLocation()
   const movies = libraries.find((library) => library.type === 'movie')
   const shows = libraries.find((library) => library.type === 'show')
-
-  useEffect(() => {
-    setMenuOpen(false)
-  }, [location.pathname])
-
-  useEffect(() => {
-    if (!menuOpen) return undefined
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') setMenuOpen(false)
-    }
-    document.body.classList.add('is-drawer-open')
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.body.classList.remove('is-drawer-open')
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [menuOpen])
 
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">Skip to content</a>
       <ScrollToTop />
-      <Sidebar className="sidebar--desktop" />
-      <Topbar onMenu={() => setMenuOpen(true)} />
-
-      <div className={`drawer${menuOpen ? ' is-open' : ''}`} aria-hidden={!menuOpen}>
-        <button
-          type="button"
-          className="drawer__backdrop"
-          onClick={() => setMenuOpen(false)}
-          aria-label="Close navigation menu"
-          tabIndex={menuOpen ? 0 : -1}
-        />
-        <div className="drawer__panel">
-          <Sidebar className="sidebar--drawer" onNavigate={() => setMenuOpen(false)} />
-        </div>
-      </div>
+      <TopNav />
 
       <main id="main-content" className="main">
         <Outlet />
@@ -84,18 +50,22 @@ export function AppShell() {
           <House size={20} />
           <span>Home</span>
         </NavLink>
-        {movies ? (
-          <NavLink to={`/library/${movies.key}`} className={mobileNavClass}>
-            <Film size={20} />
-            <span>Movies</span>
-          </NavLink>
-        ) : null}
         {shows ? (
           <NavLink to={`/library/${shows.key}`} className={mobileNavClass}>
             <Tv size={20} />
             <span>TV</span>
           </NavLink>
         ) : null}
+        {movies ? (
+          <NavLink to={`/library/${movies.key}`} className={mobileNavClass}>
+            <Film size={20} />
+            <span>Movies</span>
+          </NavLink>
+        ) : null}
+        <NavLink to="/my-list" className={mobileNavClass}>
+          <ListPlus size={20} />
+          <span>My List</span>
+        </NavLink>
         <NavLink to="/search" className={mobileNavClass}>
           <Search size={20} />
           <span>Search</span>
