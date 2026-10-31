@@ -7,10 +7,12 @@ import { MediaCard } from './MediaCard.jsx'
 
 const PAGE_SIZE = 60
 
-export function HomeLibraryBrowser({ libraries = [] }) {
-  const [activeKey, setActiveKey] = useState(libraries[0]?.key || null)
+export function HomeCatalog({ type, libraries = [] }) {
+  const matching = libraries.filter((library) => library.type === type)
+  const isMovies = type === 'movie'
   const [items, setItems] = useState([])
   const [total, setTotal] = useState(0)
+  const [nextStart, setNextStart] = useState(0)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState(null)
@@ -19,32 +21,25 @@ export function HomeLibraryBrowser({ libraries = [] }) {
   const requestRef = useRef(0)
   const sentinelRef = useRef(null)
 
-  const activeLibrary = libraries.find((library) => library.key === activeKey) || libraries[0] || null
-
   useEffect(() => {
-    if (libraries.length && !libraries.some((library) => library.key === activeKey)) {
-      setActiveKey(libraries[0].key)
-    }
-  }, [libraries, activeKey])
-
-  useEffect(() => {
-    if (!activeKey) return undefined
+    if (!matching.length) return undefined
 
     const controller = new AbortController()
     const requestId = ++requestRef.current
 
     setLoading(true)
-    setLoadingMore(false)
     setError(null)
     setMoreError(null)
     setItems([])
     setTotal(0)
+    setNextStart(0)
 
-    api.library(activeKey, { start: 0, size: PAGE_SIZE }, controller.signal)
+    api.homeAll(type, { start: 0, size: PAGE_SIZE }, controller.signal)
       .then((result) => {
         if (requestRef.current !== requestId) return
         setItems(result.items || [])
         setTotal(result.totalSize || result.items?.length || 0)
+        setNextStart(result.nextStart ?? result.items?.length ?? 0)
         setLoading(false)
       })
       .catch((failure) => {
@@ -54,30 +49,33 @@ export function HomeLibraryBrowser({ libraries = [] }) {
       })
 
     return () => controller.abort()
-  }, [activeKey, reloadToken])
+    // The library list only changes when Plex libraries are added or removed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, reloadToken, matching.length])
 
   const loadMore = useCallback(async () => {
-    if (!activeKey || loading || loadingMore || error || items.length >= total) return
+    if (loading || loadingMore || error || nextStart >= total) return
 
     const requestId = requestRef.current
     setLoadingMore(true)
     setMoreError(null)
 
     try {
-      const result = await api.library(activeKey, { start: items.length, size: PAGE_SIZE })
+      const result = await api.homeAll(type, { start: nextStart, size: PAGE_SIZE })
       if (requestRef.current !== requestId) return
 
       setItems((current) => {
         const seen = new Set(current.map((item) => item.ratingKey))
         return [...current, ...(result.items || []).filter((item) => !seen.has(item.ratingKey))]
       })
-      setTotal(result.totalSize || Math.max(total, items.length + (result.items?.length || 0)))
+      setTotal(result.totalSize || Math.max(total, nextStart + (result.items?.length || 0)))
+      setNextStart(result.nextStart ?? nextStart + (result.items?.length || 0))
     } catch (failure) {
       if (requestRef.current === requestId) setMoreError(failure)
     } finally {
       if (requestRef.current === requestId) setLoadingMore(false)
     }
-  }, [activeKey, loading, loadingMore, error, items.length, total])
+  }, [type, loading, loadingMore, error, nextStart, total])
 
   useEffect(() => {
     const node = sentinelRef.current
@@ -88,7 +86,7 @@ export function HomeLibraryBrowser({ libraries = [] }) {
       || error
       || moreError
       || !total
-      || items.length >= total
+      || nextStart >= total
     ) {
       return undefined
     }
@@ -97,47 +95,32 @@ export function HomeLibraryBrowser({ libraries = [] }) {
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) loadMore()
       },
-      { rootMargin: '700px 0px' },
+      { rootMargin: '900px 0px' },
     )
 
     observer.observe(node)
     return () => observer.disconnect()
-  }, [loading, loadingMore, error, moreError, total, items.length, loadMore])
+  }, [loading, loadingMore, error, moreError, total, nextStart, loadMore])
 
-  if (!libraries.length) return null
+  if (!matching.length) return null
 
   const retryInitial = () => setReloadToken((value) => value + 1)
+  const noun = isMovies ? 'film' : 'series'
 
   return (
-    <section className="home-library" aria-labelledby="home-library-title">
-      <header className="home-library__header">
+    <section className="home-catalog" aria-labelledby={`home-catalog-${type}`}>
+      <header className="home-catalog__header">
         <div>
-          <p className="eyebrow">Everything you own</p>
-          <h2 id="home-library-title">Your whole library</h2>
+          <p className="eyebrow">{isMovies ? 'Films' : 'Series'}</p>
+          <h2 id={`home-catalog-${type}`}>{isMovies ? 'All movies' : 'All shows'}</h2>
           <p>
-            Every film and series across all {libraries.length} Plex{' '}
-            {libraries.length === 1 ? 'library' : 'libraries'}. Keep scrolling — titles load as you go.
+            Every {noun} in your Plex library, in one place. Keep scrolling — more load as you go.
           </p>
         </div>
-        <span className="home-library__count">
-          {loading ? 'Loading…' : `${total.toLocaleString()} ${activeLibrary?.type === 'show' ? 'series' : 'titles'}`}
+        <span className="home-catalog__count">
+          {loading ? 'Loading…' : `${total.toLocaleString()} ${isMovies ? 'films' : 'shows'}`}
         </span>
       </header>
-
-      <div className="home-library__tabs" role="tablist" aria-label="Choose a Plex library">
-        {libraries.map((library) => (
-          <button
-            key={library.key}
-            type="button"
-            role="tab"
-            aria-selected={library.key === activeKey}
-            className={`home-library__tab${library.key === activeKey ? ' is-active' : ''}`}
-            onClick={() => setActiveKey(library.key)}
-          >
-            {library.title}
-          </button>
-        ))}
-      </div>
 
       {loading ? (
         <GridSkeleton count={12} />
@@ -145,17 +128,17 @@ export function HomeLibraryBrowser({ libraries = [] }) {
         <ErrorState error={error} onRetry={retryInitial} compact />
       ) : items.length ? (
         <>
-          <div className="poster-grid home-library__grid">
+          <div className="poster-grid home-catalog__grid">
             {items.map((item, index) => (
               <MediaCard key={item.ratingKey} item={item} variant="grid" index={index} />
             ))}
           </div>
 
-          <div className="home-library__status">
+          <div className="home-catalog__status">
             <span>
               Showing {items.length.toLocaleString()} of {total.toLocaleString()}
             </span>
-            {items.length < total ? (
+            {nextStart < total ? (
               <button
                 type="button"
                 className="button button--secondary button--small"
@@ -163,15 +146,15 @@ export function HomeLibraryBrowser({ libraries = [] }) {
                 disabled={loadingMore}
               >
                 {loadingMore ? <LoaderCircle size={14} className="spin" /> : null}
-                {loadingMore ? 'Loading more' : 'Load more titles'}
+                {loadingMore ? 'Loading more' : 'Load more'}
               </button>
             ) : (
-              <span className="home-library__complete">Every title is loaded</span>
+              <span className="home-catalog__complete">Everything is loaded</span>
             )}
           </div>
 
           {moreError ? (
-            <div className="home-library__more-error" role="alert">
+            <div className="home-catalog__more-error" role="alert">
               <p>{moreError.message}</p>
               <button type="button" className="text-button" onClick={loadMore}>
                 Try again
@@ -179,15 +162,15 @@ export function HomeLibraryBrowser({ libraries = [] }) {
             </div>
           ) : null}
 
-          {items.length < total ? (
-            <div ref={sentinelRef} className="home-library__sentinel" aria-hidden="true" />
+          {nextStart < total ? (
+            <div ref={sentinelRef} className="home-catalog__sentinel" aria-hidden="true" />
           ) : null}
         </>
       ) : (
         <EmptyState
           icon={Clapperboard}
           eyebrow="Nothing on this shelf"
-          title={`${activeLibrary?.title || 'This library'} is empty`}
+          title={`No ${isMovies ? 'movies' : 'shows'} found`}
           message="Add media in Plex and run a library scan. Nocturne will show it here on the next refresh."
         />
       )}

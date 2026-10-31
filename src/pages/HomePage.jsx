@@ -6,7 +6,7 @@ import { usePageTitle } from '../hooks/usePageTitle.js'
 import { useRemote } from '../hooks/useRemote.js'
 import { useMyList } from '../lib/myList.js'
 import { Hero } from '../components/Hero.jsx'
-import { HomeLibraryBrowser } from '../components/HomeLibraryBrowser.jsx'
+import { HomeCatalog } from '../components/HomeCatalog.jsx'
 import { MediaRow } from '../components/MediaRow.jsx'
 import { HomeSkeleton } from '../components/Skeleton.jsx'
 import { EmptyState, ErrorState } from '../components/StateMessage.jsx'
@@ -97,7 +97,8 @@ export function HomePage() {
         })}
       </div>
 
-      <HomeLibraryBrowser libraries={data.libraries || []} />
+      <HomeCatalog type="movie" libraries={data.libraries || []} />
+      <HomeCatalog type="show" libraries={data.libraries || []} />
 
       <footer className="home-footer">
         <div>

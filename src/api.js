@@ -73,6 +73,10 @@ export const api = {
     return request(`/api/home${refresh ? '?refresh=1' : ''}`, { signal })
   },
 
+  homeAll(type, { start = 0, size = 60 } = {}, signal) {
+    return request(`/api/home/all${query({ type, start, size })}`, { signal })
+  },
+
   library(key, { sort = 'recent', start = 0, size = 60 } = {}, signal) {
     return request(`/api/library/${encodeURIComponent(key)}${query({ sort, start, size })}`, { signal })
   },
@@ -113,10 +117,15 @@ export const api = {
     return request('/api/auth/disconnect', { method: 'POST', signal })
   },
 
-  startPlayback(ratingKey, offsetMs = 0, signal) {
+  startPlayback(ratingKey, { offsetMs = 0, audioStreamId, subtitleStreamId } = {}, signal) {
     return request('/api/player', {
       method: 'POST',
-      body: { ratingKey, offsetMs },
+      body: {
+        ratingKey,
+        offsetMs,
+        audioStreamId: audioStreamId || undefined,
+        subtitleStreamId: subtitleStreamId || undefined,
+      },
       signal,
     })
   },

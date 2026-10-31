@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  AudioLines,
+  Captions,
+  Check,
   ExternalLink,
   LoaderCircle,
   Maximize,
@@ -8,6 +11,7 @@ import {
   Play,
   RotateCcw,
   RotateCw,
+  SkipForward,
   TriangleAlert,
   Volume2,
   VolumeX,
@@ -52,10 +56,11 @@ export function PlayerOverlay({
   onRestart,
   onRetry,
   onReplay,
+  onPlayNext,
   onReport,
   onEnded,
 }) {
-  const { item, session, phase, error, pendingOffset = 0 } = playback
+  const { item, session, phase, error, pendingOffset = 0, nextEpisode = null } = playback
   const containerRef = useRef(null)
   const videoRef = useRef(null)
   const hlsRef = useRef(null)
@@ -77,6 +82,20 @@ export function PlayerOverlay({
   const [streamError, setStreamError] = useState(null)
   const [volume, setVolume] = useState(storedVolume)
   const [muted, setMuted] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [selectedAudioId, setSelectedAudioId] = useState(null)
+  const [selectedSubtitleId, setSelectedSubtitleId] = useState(null)
+  const [autoPlayOff, setAutoPlayOff] = useState(false)
+  const [countdown, setCountdown] = useState(null)
+
+  const audioTracks = session?.streams?.audio || []
+  const subtitleTracks = session?.streams?.subtitles || []
+  const selectedSubtitle = subtitleTracks.find((track) => track.id === selectedSubtitleId) || null
+  const subtitleUrl = selectedSubtitle && !selectedSubtitle.isImage ? selectedSubtitle.url : null
+  const introMarker = session?.markers?.intro || null
+  const canSkipIntro = Boolean(
+    introMarker && timeMs >= introMarker.startMs - 1500 && timeMs < introMarker.endMs - 1000,
+  )
 
   const duration = Math.max(0, session?.durationMs || item?.duration || 0)
   const displayTime = scrubMs ?? timeMs
@@ -156,8 +175,8 @@ export function PlayerOverlay({
     timeRef.current = target
     setTimeMs(target)
     onReport(target, 'buffering')
-    onRestart(target)
-  }, [duration, onReport, onRestart, readTime])
+    onRestart(target, { audioStreamId: selectedAudioId, subtitleStreamId: selectedSubtitleId })
+  }, [duration, onReport, onRestart, readTime, selectedAudioId, selectedSubtitleId])
 
   const seekBy = useCallback((deltaMs) => {
     seekTo(readTime() + deltaMs)
@@ -175,8 +194,35 @@ export function PlayerOverlay({
 
   const retryStream = useCallback(() => {
     setStreamError(null)
-    onRestart(Math.max(0, readTime()))
-  }, [onRestart, readTime])
+    onRestart(Math.max(0, readTime()), {
+      audioStreamId: selectedAudioId,
+      subtitleStreamId: selectedSubtitleId,
+    })
+  }, [onRestart, readTime, selectedAudioId, selectedSubtitleId])
+
+  const chooseAudio = useCallback((track) => {
+    if (!track || track.id === selectedAudioId) return
+    setSelectedAudioId(track.id)
+    onRestart(readTime(), {
+      audioStreamId: track.id,
+      subtitleStreamId: selectedSubtitleId,
+    })
+  }, [onRestart, readTime, selectedAudioId, selectedSubtitleId])
+
+  const chooseSubtitle = useCallback((track) => {
+    const nextId = track?.id || null
+    if (nextId === selectedSubtitleId) return
+    setSelectedSubtitleId(nextId)
+
+    // Plex has to burn image subtitles into the video, and it has to restart
+    // the stream to remove a track that was already burned in.
+    if (track?.isImage || session?.burnSubtitles) {
+      onRestart(readTime(), {
+        audioStreamId: selectedAudioId,
+        subtitleStreamId: nextId,
+      })
+    }
+  }, [onRestart, readTime, selectedAudioId, selectedSubtitleId, session?.burnSubtitles])
 
   useEffect(() => {
     sessionRef.current = session
@@ -189,7 +235,19 @@ export function PlayerOverlay({
     setNeedsPlay(false)
     hasStartedRef.current = false
     timeRef.current = session.offsetMs || 0
+    setSelectedAudioId(session.selectedAudioId || null)
+    setSelectedSubtitleId(session.selectedSubtitleId || null)
+    setMenuOpen(false)
+    setAutoPlayOff(false)
   }, [session])
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    for (const track of video.textTracks) {
+      track.mode = subtitleUrl ? 'showing' : 'disabled'
+    }
+  }, [subtitleUrl, session])
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement
@@ -345,6 +403,11 @@ export function PlayerOverlay({
     const onKeyDown = (event) => {
       const insideControl = event.target?.closest?.('input, textarea, select, button')
       if (event.key === 'Escape') {
+        if (menuOpen) {
+          event.preventDefault()
+          setMenuOpen(false)
+          return
+        }
         if (document.fullscreenElement) return
         event.preventDefault()
         handleClose()
@@ -399,6 +462,11 @@ export function PlayerOverlay({
           setMuted((value) => !value)
           revealControls()
           break
+        case 'c':
+          event.preventDefault()
+          setMenuOpen((value) => !value)
+          revealControls()
+          break
         default:
           break
       }
@@ -406,7 +474,7 @@ export function PlayerOverlay({
 
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [handleClose, revealControls, seekBy, togglePlay, toggleFullscreen])
+  }, [handleClose, menuOpen, revealControls, seekBy, togglePlay, toggleFullscreen])
 
   const durationForSlider = Math.max(duration, 1)
   const playedPercent = clamp((displayTime / durationForSlider) * 100, 0, 100)
@@ -418,6 +486,29 @@ export function PlayerOverlay({
   const startLabel = pendingOffset > 5000
     ? `Resuming at ${formatClock(pendingOffset)}`
     : 'Opening your Plex stream'
+
+  useEffect(() => {
+    if (!ended || !nextEpisode || autoPlayOff) {
+      setCountdown(null)
+      return undefined
+    }
+
+    const total = 8
+    setCountdown(total)
+    const startedAt = Date.now()
+    const timer = window.setInterval(() => {
+      const remaining = total - Math.floor((Date.now() - startedAt) / 1000)
+      if (remaining <= 0) {
+        window.clearInterval(timer)
+        setCountdown(0)
+        onPlayNext()
+        return
+      }
+      setCountdown(remaining)
+    }, 250)
+
+    return () => window.clearInterval(timer)
+  }, [autoPlayOff, ended, nextEpisode, onPlayNext])
 
   return (
     <div
@@ -442,7 +533,10 @@ export function PlayerOverlay({
           className="player-video"
           playsInline
           preload="auto"
-          onClick={togglePlay}
+          onClick={() => {
+            setMenuOpen(false)
+            togglePlay()
+          }}
           onDoubleClick={toggleFullscreen}
           onTimeUpdate={() => {
             if (!hasStartedRef.current && videoRef.current && session?.mode === 'hls' && session.offsetMs > 1000) {
@@ -490,10 +584,38 @@ export function PlayerOverlay({
               'The browser could not play this file directly. Try again, or open it in Plex.',
             ))
           }}
-        />
+        >
+          {subtitleUrl ? (
+            <track
+              key={subtitleUrl}
+              kind="subtitles"
+              src={subtitleUrl}
+              srcLang={selectedSubtitle?.languageCode || 'en'}
+              label={selectedSubtitle?.displayTitle || 'Subtitles'}
+              default
+              onLoad={(event) => {
+                if (event.currentTarget.track) event.currentTarget.track.mode = 'showing'
+              }}
+            />
+          ) : null}
+        </video>
       ) : null}
 
       <div className="player-overlay__shade" aria-hidden="true" />
+
+      {showVideo && canSkipIntro ? (
+        <button
+          type="button"
+          className="player-skip"
+          onClick={() => {
+            seekTo(introMarker.endMs)
+            revealControls()
+          }}
+        >
+          Skip intro
+          <SkipForward size={17} />
+        </button>
+      ) : null}
 
       <header className="player-chrome player-chrome--top">
         <button type="button" className="player-icon-button" onClick={handleClose} aria-label="Close player">
@@ -575,26 +697,72 @@ export function PlayerOverlay({
 
       {ended ? (
         <div className="player-ended">
-          <p className="eyebrow">End of playback</p>
-          <h2>{title}</h2>
-          <p>
-            {item?.type === 'episode'
-              ? 'This episode is finished and Plex has been updated.'
-              : 'The credits have rolled, and your Plex watch history is up to date.'}
-          </p>
-          <div className="player-ended__actions">
-            <button type="button" className="button button--primary button--large" onClick={onReplay}>
-              <RotateCcw size={17} />
-              Play again
-            </button>
-            <button
-              type="button"
-              className="button button--glass button--large"
-              onClick={() => onClose(timeRef.current)}
-            >
-              Back to Nocturne
-            </button>
-          </div>
+          {nextEpisode ? (
+            <>
+              <p className="eyebrow">Up next</p>
+              <h2>{nextEpisode.seriesTitle || nextEpisode.title}</h2>
+              <p className="player-ended__next">
+                {[nextEpisode.episodeCode, nextEpisode.episodeTitle].filter(Boolean).join(' · ')
+                  || 'Next episode'}
+              </p>
+              <p>
+                {countdown > 0
+                  ? `Autoplay starts in ${countdown} second${countdown === 1 ? '' : 's'}.`
+                  : 'Autoplay is paused.'}
+              </p>
+              <div className="player-ended__actions">
+                <button
+                  type="button"
+                  className="button button--primary button--large"
+                  onClick={onPlayNext}
+                >
+                  <Play size={17} fill="currentColor" />
+                  Play next episode
+                </button>
+                <button
+                  type="button"
+                  className="button button--glass button--large"
+                  onClick={() => {
+                    setAutoPlayOff(true)
+                    setCountdown(null)
+                  }}
+                  disabled={autoPlayOff}
+                >
+                  Cancel autoplay
+                </button>
+                <button
+                  type="button"
+                  className="button button--ghost"
+                  onClick={() => onClose(timeRef.current)}
+                >
+                  Back to Nocturne
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="eyebrow">End of playback</p>
+              <h2>{title}</h2>
+              <p>
+                {item?.type === 'episode'
+                  ? 'This episode is finished and Plex has been updated.'
+                  : 'The credits have rolled, and your Plex watch history is up to date.'}
+              </p>
+              <div className="player-ended__actions">
+                <button type="button" className="button button--primary button--large" onClick={onReplay}>
+                  <RotateCcw size={17} />
+                  Play again
+                </button>
+                <button
+                  type="button"
+                  className="button button--glass button--large"
+                  onClick={() => onClose(timeRef.current)}
+                >
+                  Back to Nocturne
+                </button>
+              </div>
+            </>
+          )}
         </div>
       ) : null}
 
@@ -667,6 +835,16 @@ export function PlayerOverlay({
             <div className="player-controls__group player-controls__group--end">
               <button
                 type="button"
+                className={`player-icon-button${menuOpen ? ' is-active' : ''}`}
+                onClick={() => setMenuOpen((value) => !value)}
+                aria-label="Audio and subtitles"
+                aria-expanded={menuOpen}
+                title="Audio and subtitles (C)"
+              >
+                <Captions size={19} />
+              </button>
+              <button
+                type="button"
                 className="player-icon-button"
                 onClick={() => setMuted((value) => !value)}
                 aria-label={muted || volume === 0 ? 'Unmute' : 'Mute'}
@@ -702,6 +880,89 @@ export function PlayerOverlay({
               </button>
             </div>
           </div>
+
+          {menuOpen ? (
+            <div className="player-tracks" role="dialog" aria-label="Audio and subtitles">
+              <header className="player-tracks__head">
+                <div>
+                  <p className="eyebrow">Playback</p>
+                  <h3>Audio &amp; subtitles</h3>
+                </div>
+                <button
+                  type="button"
+                  className="player-icon-button"
+                  onClick={() => setMenuOpen(false)}
+                  aria-label="Close audio and subtitle menu"
+                >
+                  <X size={17} />
+                </button>
+              </header>
+
+              <div className="player-tracks__columns">
+                <section>
+                  <h4>
+                    <AudioLines size={14} />
+                    Audio
+                  </h4>
+                  {audioTracks.length ? audioTracks.map((track) => (
+                    <button
+                      key={track.id}
+                      type="button"
+                      className={`player-tracks__option${track.id === selectedAudioId ? ' is-selected' : ''}`}
+                      onClick={() => chooseAudio(track)}
+                    >
+                      <span className="player-tracks__label">{track.displayTitle}</span>
+                      {track.id === selectedAudioId ? <Check size={15} /> : null}
+                    </button>
+                  )) : (
+                    <p className="player-tracks__empty">Plex did not list separate audio tracks.</p>
+                  )}
+                </section>
+
+                <section>
+                  <h4>
+                    <Captions size={14} />
+                    Subtitles
+                  </h4>
+                  <button
+                    type="button"
+                    className={`player-tracks__option${!selectedSubtitleId ? ' is-selected' : ''}`}
+                    onClick={() => chooseSubtitle(null)}
+                  >
+                    <span className="player-tracks__label">Off</span>
+                    {!selectedSubtitleId ? <Check size={15} /> : null}
+                  </button>
+                  {subtitleTracks.map((track) => (
+                    <button
+                      key={track.id}
+                      type="button"
+                      className={`player-tracks__option${track.id === selectedSubtitleId ? ' is-selected' : ''}`}
+                      onClick={() => chooseSubtitle(track)}
+                    >
+                      <span className="player-tracks__label">
+                        {track.displayTitle}
+                        <small>
+                          {[track.forced ? 'Forced' : null, track.isImage ? 'Burn-in' : 'Text']
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </small>
+                      </span>
+                      {track.id === selectedSubtitleId ? <Check size={15} /> : null}
+                    </button>
+                  ))}
+                  {!subtitleTracks.length ? (
+                    <p className="player-tracks__empty">This file has no subtitle tracks.</p>
+                  ) : null}
+                </section>
+              </div>
+
+              {subtitleTracks.some((track) => track.isImage) ? (
+                <p className="player-tracks__note">
+                  Image subtitles restart the stream so Plex can burn them into the picture.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </footer>
       ) : null}
     </div>

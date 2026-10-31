@@ -31,30 +31,47 @@ export function PlayerProvider({ children }) {
     playbackRef.current = playback
   }, [playback])
 
-  const begin = useCallback(async (item, offsetMs, { keepOverlay = false } = {}) => {
+  const begin = useCallback(async (
+    item,
+    offsetMs,
+    { audioStreamId = null, subtitleStreamId = null } = {},
+  ) => {
     const requestId = ++requestRef.current
     const startAt = Math.max(0, Math.round(Number(offsetMs) || 0))
     lastTimeRef.current = startAt
 
-    setPlayback((previous) => (
-      keepOverlay && previous
-        ? { ...previous, session: null, phase: 'starting', error: null, pendingOffset: startAt }
-        : { item, session: null, phase: 'starting', error: null, pendingOffset: startAt }
-    ))
+    setPlayback({
+      item,
+      session: null,
+      phase: 'starting',
+      error: null,
+      pendingOffset: startAt,
+      selection: { audioStreamId, subtitleStreamId },
+      nextEpisode: null,
+    })
 
     try {
-      const result = await api.startPlayback(item.ratingKey, startAt)
+      const result = await api.startPlayback(item.ratingKey, {
+        offsetMs: startAt,
+        audioStreamId,
+        subtitleStreamId,
+      })
       if (requestRef.current !== requestId) {
         api.stopPlayback(result.session.sessionId, { timeMs: startAt }).catch(() => {})
         return
       }
-      setPlayback((previous) => ({
-        item: previous?.item || item,
+      setPlayback({
+        item,
         session: result.session,
         phase: 'ready',
         error: null,
         pendingOffset: startAt,
-      }))
+        selection: {
+          audioStreamId: result.session.selectedAudioId || null,
+          subtitleStreamId: result.session.selectedSubtitleId || null,
+        },
+        nextEpisode: result.session.nextEpisode || null,
+      })
     } catch (error) {
       if (requestRef.current !== requestId) return
       setPlayback((previous) => (
@@ -81,7 +98,7 @@ export function PlayerProvider({ children }) {
     }
   }, [])
 
-  const restartAt = useCallback((offsetMs) => {
+  const restartAt = useCallback((offsetMs, selection = {}) => {
     const current = playbackRef.current
     if (!current?.item) return
 
@@ -90,13 +107,24 @@ export function PlayerProvider({ children }) {
         timeMs: Math.max(0, Math.round(lastTimeRef.current)),
       }).catch(() => {})
     }
-    begin(current.item, offsetMs, { keepOverlay: true })
+
+    const hasAudioChoice = Object.prototype.hasOwnProperty.call(selection, 'audioStreamId')
+    const hasSubtitleChoice = Object.prototype.hasOwnProperty.call(selection, 'subtitleStreamId')
+
+    begin(current.item, offsetMs, {
+      audioStreamId: hasAudioChoice
+        ? selection.audioStreamId
+        : current.selection?.audioStreamId ?? null,
+      subtitleStreamId: hasSubtitleChoice
+        ? selection.subtitleStreamId
+        : current.selection?.subtitleStreamId ?? null,
+    })
   }, [begin])
 
   const retry = useCallback(() => {
     const current = playbackRef.current
     if (!current?.item) return
-    begin(current.item, current.pendingOffset ?? lastTimeRef.current, { keepOverlay: true })
+    begin(current.item, current.pendingOffset ?? lastTimeRef.current, current.selection || {})
   }, [begin])
 
   const reportProgress = useCallback((timeMs, state) => {
@@ -122,15 +150,22 @@ export function PlayerProvider({ children }) {
         completed: true,
       }).catch(() => {})
     }
+    const nextEpisode = current.session?.nextEpisode || current.nextEpisode || null
     setPlayback((previous) => (
-      previous ? { ...previous, session: null, phase: 'ended' } : null
+      previous ? { ...previous, session: null, phase: 'ended', nextEpisode } : null
     ))
   }, [])
 
   const replay = useCallback(() => {
     const current = playbackRef.current
     if (!current?.item) return
-    begin(current.item, 0, { keepOverlay: true })
+    begin(current.item, 0, current.selection || {})
+  }, [begin])
+
+  const playNext = useCallback(() => {
+    const current = playbackRef.current
+    if (!current?.nextEpisode) return
+    begin(current.nextEpisode, 0)
   }, [begin])
 
   const value = useMemo(() => ({
@@ -140,6 +175,7 @@ export function PlayerProvider({ children }) {
     restartAt,
     retry,
     replay,
+    playNext,
     reportProgress,
     finishPlayback,
   }), [
@@ -149,6 +185,7 @@ export function PlayerProvider({ children }) {
     restartAt,
     retry,
     replay,
+    playNext,
     reportProgress,
     finishPlayback,
   ])
@@ -163,6 +200,7 @@ export function PlayerProvider({ children }) {
           onRestart={restartAt}
           onRetry={retry}
           onReplay={replay}
+          onPlayNext={playNext}
           onReport={reportProgress}
           onEnded={finishPlayback}
         />

@@ -281,7 +281,14 @@ Nocturne uses two playback paths automatically:
 
 You can play, pause, skip 10 seconds, drag the progress bar, change the volume, and go fullscreen.
 The keyboard shortcuts are **Space** (play/pause), **← / →** (10 seconds), **J / L** (30 seconds),
-**↑ / ↓** (volume), **M** (mute), **F** (fullscreen), and **Esc** (close).
+**↑ / ↓** (volume), **M** (mute), **F** (fullscreen), **C** (audio and subtitles), and **Esc**
+(close the menu or the player).
+
+Click the speech-bubble icon in the player controls to choose an **audio track** or **subtitles**.
+Text subtitles appear immediately. Image subtitle formats such as PGS have to be burned into the
+picture by Plex, so the stream restarts briefly when you pick one. **Skip Intro** appears while
+Plex's detected intro is playing. When an episode ends, Nocturne counts down to the next episode
+and plays it automatically unless you press **Cancel autoplay**.
 
 **Progress is saved to Plex.** If you stop halfway through, the title appears in Continue Watching
 at that position. If you watch to the end, Plex marks it watched.
@@ -291,7 +298,10 @@ A few things to know:
 - A transcoded video may take a few seconds to start, especially for 4K or HEVC files.
 - Seeking in a transcoded video restarts the conversion at the new position, so it can pause for a
   few seconds. Direct-play files seek instantly.
-- Subtitle and audio-track selection are not available yet. Plex's default streams are used.
+- Switching audio tracks or picking an image subtitle restarts the Plex stream at your current
+  position, so expect a short pause.
+- Skip Intro only appears when Plex has analysed that episode's intro. Autoplay needs another
+  episode to exist after the current one.
 - If a title cannot be streamed, use **Open in Plex** from the player's error screen.
 
 Nocturne only reads and streams from Plex. It never changes your media files, codecs, or Plex

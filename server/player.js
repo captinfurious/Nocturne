@@ -1,7 +1,8 @@
 import crypto from 'node:crypto'
 import { Readable } from 'node:stream'
 import { getCredentials } from './config.js'
-import { getMetadata } from './plex.js'
+import { fetchSubtitleVtt, getChildren, getMarkers, getMetadata } from './plex.js'
+import { normalizeItem } from './nocturne.js'
 import { PlexError, plexHeaders } from './plexAuth.js'
 
 const SESSION_TTL_MS = 6 * 60 * 60 * 1000
@@ -12,6 +13,9 @@ const sessions = new Map()
 const DIRECT_CONTAINERS = new Set(['mp4', 'm4v', 'mov', 'webm'])
 const BROWSER_VIDEO = new Set(['h264', 'avc', 'avc1', 'vp8', 'vp9', 'av1'])
 const BROWSER_AUDIO = new Set(['aac', 'mp3', 'opus', 'vorbis'])
+const TEXT_SUBTITLE_CODECS = new Set([
+  'srt', 'subrip', 'vtt', 'webvtt', 'txt', 'text', 'mov_text', 'timedtext', 'eia_608', 'cea608',
+])
 
 function now() {
   return Date.now()
@@ -106,6 +110,121 @@ function canDirectPlay(media, part) {
 function canRemuxVideo(media) {
   const video = String(media?.videoCodec || '').toLowerCase()
   return video === 'h264' || video === 'avc' || video === 'avc1'
+}
+
+function streamLabel(stream, fallback) {
+  if (stream?.displayTitle) return stream.displayTitle
+  const parts = []
+  if (stream?.language) parts.push(stream.language)
+  if (stream?.codec) parts.push(String(stream.codec).toUpperCase())
+  if (Number(stream?.channels) > 0) parts.push(`${Number(stream.channels)}ch`)
+  if (stream?.title && !parts.includes(stream.title)) parts.push(stream.title)
+  return parts.join(' · ') || fallback
+}
+
+function normalizeStreams(part) {
+  const audio = []
+  const subtitles = []
+  const raw = Array.isArray(part?.Stream) ? part.Stream : []
+
+  for (const stream of raw) {
+    const id = String(stream?.id ?? '')
+    if (!/^\d+$/.test(id)) continue
+    const streamType = Number(stream.streamType)
+
+    if (streamType === 2) {
+      audio.push({
+        id,
+        codec: stream.codec || null,
+        language: stream.language || null,
+        languageCode: stream.languageCode || null,
+        title: stream.title || null,
+        displayTitle: streamLabel(stream, `Audio ${audio.length + 1}`),
+        channels: Number(stream.channels) || null,
+        selected: Boolean(stream.selected),
+      })
+      continue
+    }
+
+    if (streamType === 3) {
+      const codec = String(stream.codec || '').toLowerCase()
+      subtitles.push({
+        id,
+        codec: stream.codec || null,
+        language: stream.language || null,
+        languageCode: stream.languageCode || null,
+        title: stream.title || null,
+        displayTitle: streamLabel(stream, `Subtitle ${subtitles.length + 1}`),
+        forced: Boolean(stream.forced),
+        hearingImpaired: Boolean(stream.hearingImpaired),
+        selected: Boolean(stream.selected),
+        isImage: Boolean(codec) && !TEXT_SUBTITLE_CODECS.has(codec),
+      })
+    }
+  }
+
+  return { audio, subtitles }
+}
+
+function normalizeMarker(marker) {
+  if (!marker) return null
+  const start = Number(marker.startTimeOffset)
+  const end = Number(marker.endTimeOffset)
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null
+  return { startMs: Math.round(start), endMs: Math.round(end) }
+}
+
+function normalizeMarkers(raw, fallbackMarkers = []) {
+  const list = Array.isArray(raw?.Marker) && raw.Marker.length ? raw.Marker : fallbackMarkers
+  const markers = Array.isArray(list) ? list : []
+  const find = (type) => markers.find((marker) => String(marker?.type).toLowerCase() === type)
+  return {
+    intro: normalizeMarker(find('intro')),
+    credits: normalizeMarker(find('credits')),
+  }
+}
+
+async function fetchMarkers(ratingKey) {
+  try {
+    return await getMarkers(ratingKey)
+  } catch {
+    return []
+  }
+}
+
+async function findNextEpisode(raw) {
+  if (raw?.type !== 'episode' || !raw.parentRatingKey || !raw.grandparentRatingKey) return null
+
+  const byIndex = (a, b) => (Number(a.index) || 0) - (Number(b.index) || 0)
+
+  try {
+    const siblings = await getChildren(raw.parentRatingKey)
+    const episodes = siblings.filter((child) => child.type === 'episode').sort(byIndex)
+    const currentIndex = episodes.findIndex(
+      (child) => String(child.ratingKey) === String(raw.ratingKey),
+    )
+    if (currentIndex >= 0 && episodes[currentIndex + 1]) {
+      return normalizeItem(episodes[currentIndex + 1])
+    }
+
+    const seasons = (await getChildren(raw.grandparentRatingKey))
+      .filter((child) => child.type === 'season')
+      .sort(byIndex)
+    const seasonIndex = seasons.findIndex(
+      (season) => String(season.ratingKey) === String(raw.parentRatingKey),
+    )
+    if (seasonIndex < 0) return null
+
+    for (let index = seasonIndex + 1; index < seasons.length; index += 1) {
+      const children = await getChildren(seasons[index].ratingKey)
+      const first = children.filter((child) => child.type === 'episode').sort(byIndex)[0]
+      if (first) return normalizeItem(first)
+    }
+  } catch {
+    return null
+  }
+
+  return null
 }
 
 function clampOffset(offsetMs, duration) {
@@ -230,6 +349,13 @@ function transcodeStartPath(session) {
     hasMDE: '1',
   })
 
+  if (session.audioStreamId) {
+    query.set('audioStreamID', session.audioStreamId)
+  }
+  if (session.burnSubtitles && session.subtitleStreamId) {
+    query.set('subtitleStreamID', session.subtitleStreamId)
+    query.set('subtitles', 'burn')
+  }
   if (session.offsetMs >= 1000) {
     query.set('offset', String(Math.floor(session.offsetMs / 1000)))
   }
@@ -252,10 +378,25 @@ function publicSession(session) {
     year: session.year,
     directPlay: session.mode === 'direct',
     transcodeReason: session.transcodeReason,
+    selectedAudioId: session.audioStreamId,
+    selectedSubtitleId: session.subtitleStreamId,
+    burnSubtitles: session.burnSubtitles,
+    streams: {
+      audio: session.streams.audio,
+      subtitles: session.streams.subtitles.map((track) => ({
+        ...track,
+        url: track.isImage ? null : `/api/player/${session.id}/subtitles/${track.id}`,
+      })),
+    },
+    markers: session.markers,
+    nextEpisode: session.nextEpisode,
   }
 }
 
-export async function startPlayback(ratingKey, { offsetMs = 0 } = {}) {
+export async function startPlayback(
+  ratingKey,
+  { offsetMs = 0, audioStreamId = null, subtitleStreamId = null } = {},
+) {
   requireCredentials()
 
   const raw = await getMetadata(ratingKey)
@@ -277,9 +418,40 @@ export async function startPlayback(ratingKey, { offsetMs = 0 } = {}) {
   }
 
   const { media, mediaIndex, part, partIndex } = selected
+  const streams = normalizeStreams(part)
+  const requestedAudioId = /^\d+$/.test(String(audioStreamId ?? '')) ? String(audioStreamId) : null
+  const requestedSubtitleId = /^\d+$/.test(String(subtitleStreamId ?? ''))
+    ? String(subtitleStreamId)
+    : null
+  const defaultAudio = streams.audio.find((track) => track.selected) || streams.audio[0] || null
+  const selectedAudio = streams.audio.find((track) => track.id === requestedAudioId)
+    || defaultAudio
+  const selectedSubtitle = streams.subtitles.find(
+    (track) => track.id === requestedSubtitleId,
+  ) || null
+  const burnSubtitles = Boolean(selectedSubtitle?.isImage)
+  const audioChanged = Boolean(
+    requestedAudioId && defaultAudio && requestedAudioId !== defaultAudio.id,
+  )
+  const directPlayable = canDirectPlay(media, part)
   const duration = Math.max(0, Number(raw.duration) || Number(media.duration) || 0)
   const offset = clampOffset(offsetMs, duration)
-  const direct = canDirectPlay(media, part)
+  const direct = directPlayable && !burnSubtitles && !audioChanged
+
+  const [fallbackMarkers, nextEpisode] = await Promise.all([
+    Array.isArray(raw.Marker) && raw.Marker.length
+      ? Promise.resolve([])
+      : fetchMarkers(raw.ratingKey),
+    findNextEpisode(raw),
+  ])
+  const markers = normalizeMarkers(raw, fallbackMarkers)
+
+  const reasons = []
+  if (!directPlayable) {
+    reasons.push(`${containerOf(media, part) || 'this file'} needs conversion for the browser`)
+  }
+  if (audioChanged) reasons.push('the chosen audio track needs Plex to remux the file')
+  if (burnSubtitles) reasons.push(`${selectedSubtitle.codec || 'these'} subtitles need burning in`)
 
   const session = {
     id: crypto.randomUUID(),
@@ -297,6 +469,12 @@ export async function startPlayback(ratingKey, { offsetMs = 0 } = {}) {
     closed: false,
     mode: direct ? 'direct' : 'hls',
     remuxVideo: canRemuxVideo(media),
+    streams,
+    audioStreamId: selectedAudio?.id || null,
+    subtitleStreamId: selectedSubtitle?.id || null,
+    burnSubtitles,
+    markers,
+    nextEpisode,
     title: raw.type === 'episode' ? raw.grandparentTitle || raw.title : raw.title,
     subtitle: raw.type === 'episode'
       ? [
@@ -305,9 +483,7 @@ export async function startPlayback(ratingKey, { offsetMs = 0 } = {}) {
         ].filter(Boolean).join(' · ')
       : null,
     year: Number(raw.year) || null,
-    transcodeReason: direct
-      ? null
-      : `${containerOf(media, part) || 'this file'} needs conversion for the browser`,
+    transcodeReason: direct ? null : reasons.join('; '),
   }
 
   sessions.set(session.id, session)
@@ -481,6 +657,31 @@ export async function streamDirect(req, res, id) {
   pipeUpstream(res, response, controller)
 }
 
+export async function streamSubtitle(req, res, id, streamId) {
+  const session = getSession(id)
+  const track = session.streams.subtitles.find((entry) => entry.id === String(streamId))
+  if (!track) {
+    throw plexError(
+      'That subtitle track is not part of this playback session.',
+      'SUBTITLE_NOT_FOUND',
+      404,
+    )
+  }
+  if (track.isImage) {
+    throw plexError(
+      'This subtitle format has to be burned into the video by Plex.',
+      'SUBTITLE_NEEDS_BURN',
+      409,
+    )
+  }
+
+  const vtt = await fetchSubtitleVtt(track.id)
+  const body = session.mode === 'hls' ? shiftWebVtt(vtt, session.offsetMs) : vtt
+  res.setHeader('Content-Type', 'text/vtt; charset=utf-8')
+  res.setHeader('Cache-Control', 'private, max-age=3600')
+  res.send(body)
+}
+
 export async function streamMaster(req, res, id) {
   const session = getSession(id)
   if (session.mode !== 'hls') {
@@ -519,6 +720,46 @@ export async function streamMaster(req, res, id) {
   res.setHeader('Content-Type', 'application/vnd.apple.mpegurl')
   res.setHeader('Cache-Control', 'no-store')
   res.send(rewritePlaylist(playlist, response.url || plexUrl(startPath).toString(), session))
+}
+
+function formatVttTime(ms) {
+  const total = Math.max(0, Math.round(ms))
+  const hours = Math.floor(total / 3_600_000)
+  const minutes = Math.floor((total % 3_600_000) / 60_000)
+  const seconds = Math.floor((total % 60_000) / 1000)
+  const millis = total % 1000
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(millis).padStart(3, '0')}`
+}
+
+function shiftWebVtt(text, offsetMs) {
+  const offset = Math.max(0, Math.round(Number(offsetMs) || 0))
+  if (!offset) return text
+
+  const toMs = (hours, minutes, seconds, millis) => (
+    ((Number(hours) * 60 + Number(minutes)) * 60 + Number(seconds)) * 1000 + Number(millis)
+  )
+
+  return text
+    .replace(/^X-TIMESTAMP-MAP=.*$/gm, '')
+    .split(/\n\n+/)
+    .map((block) => {
+      if (block.trimStart().startsWith('WEBVTT')) return block.trimEnd()
+      const match = block.match(
+        /^(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s+-->\s+(\d{2}):(\d{2}):(\d{2})\.(\d{3})(.*)$/m,
+      )
+      if (!match) return block
+
+      const start = toMs(match[1], match[2], match[3], match[4]) - offset
+      const end = toMs(match[5], match[6], match[7], match[8]) - offset
+      if (end <= 0) return null
+
+      const timing = `${formatVttTime(Math.max(0, start))} --> ${formatVttTime(end)}${match[9]}`
+      return block.replace(match[0], timing)
+    })
+    .filter(Boolean)
+    .join('\n\n')
+    .trimEnd()
+    .concat('\n')
 }
 
 function validateHlsTarget(value) {

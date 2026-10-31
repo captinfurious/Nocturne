@@ -134,9 +134,86 @@ export async function getSectionGenres(sectionKey) {
 
 export async function getMetadata(ratingKey) {
   const data = await plexRequest(`/library/metadata/${ratingKey}`, {
-    query: { includeGuids: 1, includeExtras: 0 },
+    query: { includeGuids: 1, includeExtras: 0, includeMarkers: 1 },
   })
   return data?.MediaContainer?.Metadata?.[0] || null
+}
+
+export async function getMarkers(ratingKey) {
+  try {
+    const data = await plexRequest(`/library/metadata/${ratingKey}/markers`)
+    const markers = data?.MediaContainer?.Marker
+    return Array.isArray(markers) ? markers : []
+  } catch {
+    return []
+  }
+}
+
+function looksLikeWebVtt(text) {
+  return /^\uFEFF?WEBVTT/.test(text.trimStart())
+}
+
+function srtToWebVtt(text) {
+  const body = text
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/^\d+\s*\n(?=\d{1,2}:\d{2}:\d{2}[,.])/gm, '')
+    .replace(
+      /^(\d{1,2}:\d{2}:\d{2}),(\d{3})\s+-->\s+(\d{1,2}:\d{2}:\d{2}),(\d{3})/gm,
+      '$1.$2 --> $3.$4',
+    )
+
+  return `WEBVTT\n\n${body.trim()}\n`
+}
+
+export async function fetchSubtitleVtt(streamId) {
+  if (!/^\d+$/.test(String(streamId))) {
+    throw new PlexError('That subtitle track has an invalid Plex identifier.', {
+      status: 400,
+      code: 'BAD_SUBTITLE_ID',
+    })
+  }
+
+  const { token, server, clientIdentifier } = requireCredentials()
+  const headers = { ...plexHeaders(clientIdentifier, token), Accept: 'text/vtt, text/plain, */*' }
+  let reachedPlex = false
+
+  // Plex can convert text tracks to WebVTT with the .vtt suffix. If an older
+  // server does not, the raw /library/streams/:id endpoint usually returns SRT,
+  // which Nocturne converts itself.
+  for (const pathname of [`/library/streams/${streamId}.vtt`, `/library/streams/${streamId}`]) {
+    let response
+    try {
+      response = await fetch(buildUrl(server.uri, pathname), {
+        headers,
+        signal: AbortSignal.timeout(20000),
+      })
+    } catch {
+      continue
+    }
+
+    reachedPlex = true
+    if (!response.ok) continue
+
+    const text = await response.text()
+    if (!text.trim()) continue
+    if (looksLikeWebVtt(text)) return text
+    if (/^\d{1,2}:\d{2}:\d{2},\d{3}\s+-->/.test(text.replace(/^\uFEFF/, '').trim())) {
+      return srtToWebVtt(text)
+    }
+  }
+
+  if (!reachedPlex) {
+    throw new PlexError('Plex did not answer when Nocturne asked for this subtitle track.', {
+      status: 502,
+      code: 'SUBTITLE_UNREACHABLE',
+    })
+  }
+
+  throw new PlexError(
+    'Plex returned this subtitle in a format the browser cannot display. Switch to burn-in for this track.',
+    { status: 415, code: 'SUBTITLE_FORMAT_UNSUPPORTED' },
+  )
 }
 
 export async function getChildren(ratingKey) {

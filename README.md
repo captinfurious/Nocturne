@@ -6,7 +6,7 @@ distinct interface: a cinematic hero, a black-and-red top-navigation layout, hor
 rows, a ranked Top 10, My List, real resume progress, search, library browsing, title and season
 details, and an in-app player that streams straight from Plex.
 
-**Current version:** 1.1.0 — desktop and responsive web with the streaming redesign, My List, and in-app playback, focused on Windows + Plex.
+**Current version:** 1.1.0 — desktop and responsive web with the streaming redesign, My List, in-app playback with audio/subtitle tracks, Skip Intro, next-episode autoplay, and continuous Home catalogs, focused on Windows + Plex.
 
 **New to Nocturne?** Follow the step-by-step **[download and Windows installation guide](TUTORIAL.md)**.
 
@@ -26,14 +26,18 @@ details, and an in-app player that streams straight from Plex.
   - Top Rated
   - Up to four populated genre collections
 - Black-and-red streaming interface with a top navigation bar, hover actions, and landscape artwork cards.
-- A full library browser on Home: every Plex movie and TV library gets a tab, every title is listed,
-  and more pages load automatically as you scroll.
+- Every film and every series on Home: one continuous catalog per type across all Plex libraries,
+  with more pages loading automatically as you scroll. No library tabs to work through.
 - My List, saved in this browser on this PC, with an automatic My List home row.
 - Real posters, backdrops, summaries, ratings, years, content ratings, cast, and genres.
 - Search across the Plex library, including episode names.
 - Paginated movie and TV library pages with sorting.
 - Movie and series detail pages, season switching, episode lists, and watch progress.
 - Built-in player with resume, seeking, volume, fullscreen, keyboard shortcuts, and buffering states.
+- Audio and subtitle track menus. Text subtitles are converted to WebVTT and drawn over the video;
+  image subtitles (PGS, VOBSUB) are burned in by Plex.
+- Skip Intro using Plex's detected intro markers, plus automatic next-episode playback with an
+  eight-second countdown and a cancel button.
 - Direct play for browser-compatible files; automatic Plex HLS transcoding for everything else.
 - Watch progress and finished titles are written back to Plex, so Continue Watching stays current.
 - Plex token and all Plex API requests stay on the local backend. The browser never receives the token.
@@ -222,7 +226,13 @@ player closes.
 
 - Click the video or press **Space** / **K** to play or pause.
 - **← / →** skip 10 seconds, **J / L** skip 30 seconds.
-- **↑ / ↓** change volume, **M** mutes, **F** toggles fullscreen, **Esc** closes the player.
+- **↑ / ↓** change volume, **M** mutes, **F** toggles fullscreen, **C** opens audio/subtitles,
+  **Esc** closes the menu or the player.
+- The track menu switches audio without leaving the player. Text subtitles switch instantly; image
+  subtitles restart the stream so Plex can burn them into the picture.
+- **Skip Intro** appears while Plex's intro marker is active and jumps to the end of the intro.
+- When an episode ends and another episode follows, the player counts down and starts it
+  automatically. **Cancel autoplay** stays on the end screen instead.
 - The scrub bar supports mouse, touch, and keyboard seeking.
 - Resume points are read from Plex. Progress is sent while playing, when pausing, and when closing;
   finishing a title marks it watched in Plex and updates Continue Watching.
@@ -232,8 +242,10 @@ player closes.
 - A transcoded stream starts a few seconds slower than direct play because Plex has to prepare it.
 - Seeking inside a transcoded title restarts the Plex transcode at the new position. That is reliable
   across Plex versions, but it is not instant like direct play.
-- Subtitle track selection is not implemented yet. Titles that rely on external subtitle tracks may
-  play without subtitles. Audio track selection is also not exposed yet.
+- Changing the audio track restarts the Plex stream at the current position so the chosen track is
+  used. Text subtitles do not restart anything; image subtitles do, because Plex has to burn them in.
+- Skip Intro only appears when Plex has intro detection data for that episode. Autoplay only runs
+  when a next episode exists in Plex.
 - The player falls back to **Open in Plex** if Plex cannot produce a stream. That button opens the
   exact title in Plex Web and contains no token.
 
@@ -295,6 +307,7 @@ Nocturne/
 GET  /api/health
 GET  /api/libraries
 GET  /api/home?refresh=1
+GET  /api/home/all?type=movie|show&start=0&size=60
 GET  /api/library/:key?sort=recent&start=0&size=60
 GET  /api/search?q=...
 GET  /api/title/:ratingKey
@@ -309,6 +322,7 @@ POST /api/player                 → create a temporary playback session
 GET  /api/player/:id/master.m3u8 → proxied Plex HLS master playlist
 GET  /api/player/:id/hls?u=...    → proxied HLS playlist or segment
 GET  /api/player/:id/stream       → direct-play media with range support
+GET  /api/player/:id/subtitles/:streamId → WebVTT subtitle track from Plex
 POST /api/player/:id/progress     → write playback position to Plex
 POST /api/player/:id/stop         → stop the transcode and finalize Plex progress
 GET  /api/play/:ratingKey        → 302 fallback to the title in Plex Web (no token in URL)
@@ -425,8 +439,12 @@ This build was verified end to end against an isolated mock Plex + plex.tv API:
 - In-app HLS playback against a mock transcode with a real HLS playlist and MPEG-TS segment.
 - Playback-session authorization, invalid-path rejection, session expiry, and Plex stop calls.
 - The black-and-red redesign: top navigation, hero, hover cards, ranked Top 10, My List persistence,
-  the all-library Home browser and its automatic paging, title pages, search, library, settings,
+  the continuous All movies and All shows Home catalogs, title pages, search, library, settings,
   mobile layout, and console errors.
+- Audio and subtitle menus: text subtitles loading as WebVTT, image subtitles restarting with burn-in,
+  switching audio tracks at the current position, and retaining both choices across a seek or restart.
+- Skip Intro appearing inside the marker window and jumping past it, and the next-episode countdown
+  starting the following episode automatically.
 - Production build and local Express hosting.
 
 The actual Plex server at `127.0.0.1:32400` on your Windows PC is not reachable from the build
@@ -474,20 +492,20 @@ player and the `/api/player` session API are the reusable playback layer for tho
 
 ---
 
-## Known limitations in 1.0
+## Known limitations
 
-- Subtitle and audio-track selection are not implemented. Plex's default streams are used.
 - Seeking in a transcoded title restarts the Plex transcode and takes a few seconds.
 - Single Plex account and single selected server; switching Plex Home users is not implemented yet.
 - My List is stored in this browser, not in Plex. It does not sync between browsers or Plex users
   and is not the same as a Plex watchlist.
-- The top navigation shortcuts use the first movie library and first TV library, but the Home
-  library browser includes every movie and TV library. Additional libraries also have their own
-  pages at `/library/<key>`.
-- Genre rows are built from the first movie and first TV library; the full Home browser still covers
-  every title in every library.
+- The top navigation shortcuts use the first movie library and first TV library, while the Home
+  catalogs include every movie and TV library. Additional libraries also have their own pages at
+  `/library/<key>`.
+- Genre rows are built from the first movie and first TV library; the All movies and All shows
+  catalogs still cover every title in every library.
 - No profiles, notifications, rating editing, collection management, or Plex library scanning controls.
-- Autoplay next episode and skip-intro are not implemented.
+- Intro markers depend on Plex's intro detection; if Plex has not analysed an episode, Skip Intro
+  does not appear.
 - No Plex music/photo libraries. Nocturne is film and TV focused.
 - The UI is optimized for desktop/mobile/large screens; full remote-control navigation is future
   work.

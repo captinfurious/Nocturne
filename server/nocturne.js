@@ -1,3 +1,4 @@
+import { cached } from './cache.js'
 import {
   getChildren,
   getLibraries,
@@ -383,6 +384,81 @@ export async function buildHome() {
     rows: [...rows, ...genreRows],
     libraries: libraries.filter((library) => ['movie', 'show'].includes(library.type)),
     generatedAt: new Date().toISOString(),
+  }
+}
+
+async function sectionTotal(sectionKey) {
+  const container = await cached(
+    `section-total:${sectionKey}`,
+    60_000,
+    () => getSectionItems(sectionKey, { start: 0, size: 1 }),
+  )
+  return intOrZero(container?.totalSize)
+}
+
+export async function buildAllTitlesPage(
+  type,
+  { sort = 'recent', start = 0, size = 60 } = {},
+) {
+  const libraries = (await getLibraries()).filter((library) => library.type === type)
+  if (!libraries.length) {
+    return { type, items: [], start: 0, size: 0, totalSize: 0, libraries: [] }
+  }
+
+  const totals = await Promise.all(
+    libraries.map(async (library) => ({
+      library,
+      total: await safe(sectionTotal(library.key), 0),
+    })),
+  )
+
+  let before = 0
+  const segments = totals.map(({ library, total }) => {
+    const segment = { library, total, before }
+    before += total
+    return segment
+  })
+
+  const totalSize = before
+  const from = Math.max(0, Math.min(Number(start) || 0, totalSize))
+  const count = Math.min(120, Math.max(1, Number(size) || 60))
+  const to = Math.min(totalSize, from + count)
+  const plexSort = SORT_MAP[sort] || SORT_MAP.recent
+
+  const pages = await Promise.all(
+    segments
+      .filter((segment) => segment.total > 0 && segment.before < to && segment.before + segment.total > from)
+      .map((segment) => {
+        const localStart = Math.max(0, from - segment.before)
+        const localEnd = Math.min(segment.total, to - segment.before)
+        return safe(
+          getSectionItems(segment.library.key, {
+            sort: plexSort,
+            start: localStart,
+            size: Math.max(1, localEnd - localStart),
+          }),
+          {},
+        )
+      }),
+  )
+
+  const items = uniqueItems(
+    pages.flatMap((page) => page.Metadata || []).map(normalizeItem).filter(Boolean),
+  ).slice(0, count)
+
+  return {
+    type,
+    items,
+    start: from,
+    size: items.length,
+    nextStart: to,
+    hasMore: to < totalSize,
+    totalSize,
+    libraries: segments.map((segment) => ({
+      key: segment.library.key,
+      title: segment.library.title,
+      count: segment.total,
+    })),
   }
 }
 

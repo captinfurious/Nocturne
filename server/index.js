@@ -12,6 +12,7 @@ import {
   updateConfig,
 } from './config.js'
 import {
+  buildAllTitlesPage,
   buildHome,
   buildLibraryPage,
   buildSearch,
@@ -27,6 +28,7 @@ import {
   streamDirect,
   streamHls,
   streamMaster,
+  streamSubtitle,
 } from './player.js'
 
 const app = express()
@@ -180,6 +182,22 @@ app.get('/api/home', async (req, res) => {
     ...home,
     server: status.server,
   })
+})
+
+app.get('/api/home/all', async (req, res) => {
+  requireConfigured()
+  const type = req.query.type === 'show' ? 'show' : 'movie'
+  const sort = ['recent', 'title', 'rating', 'year', 'popular'].includes(req.query.sort)
+    ? req.query.sort
+    : 'recent'
+  const start = Math.max(0, Number.parseInt(req.query.start, 10) || 0)
+  const size = Math.min(120, Math.max(1, Number.parseInt(req.query.size, 10) || 60))
+  const credentials = getCredentials()
+  const cacheKey = `home-all:${credentials.server.uri}:${type}:${sort}:${start}:${size}`
+
+  const page = await cached(cacheKey, 30_000, () =>
+    buildAllTitlesPage(type, { sort, start, size }))
+  res.json(page)
 })
 
 app.get('/api/library/:key', async (req, res) => {
@@ -360,7 +378,13 @@ app.post('/api/player', async (req, res) => {
   requireConfigured()
   const key = ratingKey(req.body?.ratingKey)
   const offsetMs = Math.max(0, Math.min(Number(req.body?.offsetMs) || 0, 24 * 60 * 60 * 1000))
-  const session = await startPlayback(key, { offsetMs })
+  const audioStreamId = /^\d+$/.test(String(req.body?.audioStreamId ?? ''))
+    ? String(req.body.audioStreamId)
+    : null
+  const subtitleStreamId = /^\d+$/.test(String(req.body?.subtitleStreamId ?? ''))
+    ? String(req.body.subtitleStreamId)
+    : null
+  const session = await startPlayback(key, { offsetMs, audioStreamId, subtitleStreamId })
   res.status(201).json({ session })
 })
 
@@ -377,6 +401,11 @@ app.get('/api/player/:id/hls', async (req, res) => {
 app.get('/api/player/:id/stream', async (req, res) => {
   requireConfigured()
   await streamDirect(req, res, playbackId(req.params.id))
+})
+
+app.get('/api/player/:id/subtitles/:streamId', async (req, res) => {
+  requireConfigured()
+  await streamSubtitle(req, res, playbackId(req.params.id), req.params.streamId)
 })
 
 app.post('/api/player/:id/progress', async (req, res) => {

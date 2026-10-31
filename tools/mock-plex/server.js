@@ -68,6 +68,25 @@ function sortItems(items, sort) {
   })
 }
 
+function markersFor(metadata) {
+  if (!metadata || metadata.type !== 'episode') return []
+  const duration = Number(metadata.duration) || 0
+  return [
+    {
+      id: `${metadata.ratingKey}-intro`,
+      type: 'intro',
+      startTimeOffset: 45_000,
+      endTimeOffset: 105_000,
+    },
+    {
+      id: `${metadata.ratingKey}-credits`,
+      type: 'credits',
+      startTimeOffset: Math.max(0, duration - 120_000),
+      endTimeOffset: duration,
+    },
+  ]
+}
+
 app.get('/identity', (req, res) => {
   res.json({
     MediaContainer: {
@@ -158,12 +177,60 @@ app.get('/library/metadata/:key', authorize, (req, res) => {
     res.status(404).json({ error: 'Mock item not found.' })
     return
   }
+  const markers = markersFor(metadata)
   res.json({
     MediaContainer: {
       size: 1,
-      Metadata: [metadata],
+      Metadata: [markers.length ? { ...metadata, Marker: markers } : metadata],
     },
   })
+})
+
+app.get('/library/metadata/:key/markers', authorize, (req, res) => {
+  const metadata = metadataFor(req.params.key)
+  if (!metadata) {
+    res.status(404).json({ error: 'Mock item not found.' })
+    return
+  }
+  const markers = markersFor(metadata)
+  res.json({
+    MediaContainer: {
+      size: markers.length,
+      Marker: markers,
+    },
+  })
+})
+
+app.get('/library/streams/:file', authorize, (req, res) => {
+  const match = String(req.params.file).match(/^(\d+)(?:\.(vtt|srt))?$/)
+  if (!match) {
+    res.status(404).json({ error: 'Mock subtitle stream not found.' })
+    return
+  }
+
+  const cues = [
+    ['00:00:01.000', '00:00:05.000', 'Mock subtitles are working through Nocturne.'],
+    ['00:00:06.000', '00:00:10.000', 'This text never leaves your PC.'],
+    ['00:00:11.000', '00:00:15.000', 'Choose another track from the player menu.'],
+  ]
+
+  if (match[2] === 'srt') {
+    const body = cues.map(([start, end, text], index) => [
+      String(index + 1),
+      `${start.replace('.', ',')} --> ${end.replace('.', ',')}`,
+      text,
+      '',
+    ].join('\n')).join('\n')
+    res.type('text/plain; charset=utf-8').send(body)
+    return
+  }
+
+  const body = [
+    'WEBVTT',
+    '',
+    ...cues.flatMap(([start, end, text]) => [`${start} --> ${end}`, text, '']),
+  ].join('\n')
+  res.type('text/vtt; charset=utf-8').send(body)
 })
 
 app.get('/hubs/search', authorize, (req, res) => {
@@ -312,7 +379,27 @@ app.use((req, res, next) => {
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl')
     res.setHeader('Cache-Control', 'no-store')
     if (fs.existsSync(HLS_INDEX)) {
-      res.sendFile(HLS_INDEX)
+      // Loop the short fixture so the development player stays open long
+      // enough to exercise track menus, Skip Intro, and seeking.
+      const lines = fs.readFileSync(HLS_INDEX, 'utf8').trim().split(/\r?\n/)
+      const header = lines.filter((line) => line.startsWith('#EXTM3U')
+        || line.startsWith('#EXT-X-VERSION')
+        || line.startsWith('#EXT-X-TARGETDURATION')
+        || line.startsWith('#EXT-X-PLAYLIST-TYPE'))
+      const segment = lines.find((line) => /\.ts$/.test(line)) || 'seg000.ts'
+      const extinf = lines.find((line) => line.startsWith('#EXTINF:')) || '#EXTINF:5.005000,'
+      const repeats = 72
+      res.send([
+        ...header,
+        '#EXT-X-MEDIA-SEQUENCE:0',
+        ...Array.from({ length: repeats }, () => [
+          '#EXT-X-DISCONTINUITY',
+          extinf,
+          segment,
+        ]).flat(),
+        '#EXT-X-ENDLIST',
+        '',
+      ].join('\n'))
       return
     }
     const segments = Array.from({ length: 8 }, (_, index) => [
