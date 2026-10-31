@@ -14,8 +14,8 @@ using System.Threading;
 [assembly: AssemblyDescription("A private cinema for your Plex library")]
 [assembly: AssemblyProduct("Nocturne")]
 [assembly: AssemblyCompany("Nocturne")]
-[assembly: AssemblyVersion("1.2.0.0")]
-[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyVersion("1.3.0.0")]
+[assembly: AssemblyFileVersion("1.3.0.0")]
 internal static class NocturneLauncher
 {
     private const int DefaultPort = 8787;
@@ -49,6 +49,11 @@ internal static class NocturneLauncher
         return "http://127.0.0.1:" + GetPort();
     }
 
+    private static string GetControlUrl()
+    {
+        return "http://127.0.0.1:" + (GetPort() + 1);
+    }
+
     private static bool IsRunning()
     {
         try
@@ -69,6 +74,62 @@ internal static class NocturneLauncher
         }
         catch
         {
+            return false;
+        }
+    }
+
+    private static bool IsControlRunning()
+    {
+        try
+        {
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(GetControlUrl() + "/api/status");
+            request.Timeout = 2000;
+            request.ReadWriteTimeout = 2000;
+            request.Proxy = null;
+            request.KeepAlive = false;
+
+            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+            using (StreamReader reader = new StreamReader(response.GetResponseStream()))
+            {
+                if (response.StatusCode != HttpStatusCode.OK) return false;
+                string body = reader.ReadToEnd();
+                return body.IndexOf("\"product\":\"Nocturne Control\"", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool StartAppFromControl()
+    {
+        try
+        {
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(GetControlUrl() + "/api/start");
+            request.Method = "POST";
+            request.ContentType = "application/json";
+            request.Headers["X-Nocturne-Control"] = "1";
+            request.Timeout = 35000;
+            request.ReadWriteTimeout = 35000;
+            request.Proxy = null;
+            request.KeepAlive = false;
+
+            byte[] body = Encoding.UTF8.GetBytes("{}");
+            request.ContentLength = body.Length;
+            using (Stream stream = request.GetRequestStream())
+            {
+                stream.Write(body, 0, body.Length);
+            }
+
+            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+            {
+                return response.StatusCode == HttpStatusCode.OK;
+            }
+        }
+        catch (Exception error)
+        {
+            Log("Could not ask the control page to start the app: " + error.Message);
             return false;
         }
     }
@@ -185,7 +246,7 @@ internal static class NocturneLauncher
             string content =
                 "@echo off\r\n" +
                 "cd /d \"%~dp0\"\r\n" +
-                "\"" + node + "\" server\\index.js --nocturne-installed >> \"logs\\server.log\" 2>&1\r\n";
+                "\"" + node + "\" server\\control.js --nocturne-installed >> \"logs\\server.log\" 2>&1\r\n";
             File.WriteAllText(script, content, new UTF8Encoding(false));
 
             // Keep sign-in data outside the installed program folder so updating
@@ -213,7 +274,7 @@ internal static class NocturneLauncher
                 return;
             }
 
-            Log("Started the Nocturne server with " + node + " at " + GetAppUrl());
+            Log("Started the Nocturne control server with " + node + " at " + GetControlUrl());
         }
         catch (Exception error)
         {
@@ -269,16 +330,30 @@ internal static class NocturneLauncher
 
         if (!IsRunning())
         {
-            string node = FindNode();
-            if (node == null)
+            if (IsControlRunning())
             {
-                ShowError(
-                    "Node.js 22 or newer is required, but Node was not found." + Environment.NewLine +
-                    "Install it from https://nodejs.org, then run the Nocturne installer again.");
-                return;
+                Log("The control page is running; asking it to start the app.");
+                if (!StartAppFromControl())
+                {
+                    ShowError(
+                        "The Nocturne control page is running, but it could not start the app." + Environment.NewLine +
+                        "Open " + GetControlUrl() + " to start it, or check logs\\server.log.");
+                    return;
+                }
             }
+            else
+            {
+                string node = FindNode();
+                if (node == null)
+                {
+                    ShowError(
+                        "Node.js 22 or newer is required, but Node was not found." + Environment.NewLine +
+                        "Install it from https://nodejs.org, then run the Nocturne installer again.");
+                    return;
+                }
 
-            StartServer(node);
+                StartServer(node);
+            }
 
             bool ready = false;
             for (int attempt = 0; attempt < 60; attempt++)
@@ -295,7 +370,7 @@ internal static class NocturneLauncher
             {
                 ShowError(
                     "The local Nocturne server did not answer after 30 seconds." + Environment.NewLine +
-                    "Open logs\\server.log to see what happened.");
+                    "Open " + GetControlUrl() + " or logs\\server.log to see what happened.");
                 return;
             }
         }

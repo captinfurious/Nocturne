@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import express from 'express'
 import { cached, invalidateCache } from './cache.js'
@@ -8,8 +9,10 @@ import {
   getInstallInfo,
   getPaths,
   getPublicStatus,
+  isLanEnabled,
   normalizeServerUrl,
   readConfig,
+  setLanEnabled,
   updateConfig,
 } from './config.js'
 import {
@@ -34,12 +37,90 @@ import {
 
 const app = express()
 const PORT = Number(process.env.PORT) || 8787
-const HOST = process.env.HOST || '127.0.0.1'
+// Listening on all interfaces lets the same server answer LAN devices. A
+// separate private-network gate below keeps it closed until the owner turns
+// LAN access on in Settings.
+const HOST = process.env.HOST || '0.0.0.0'
+const CONTROL_PORT = Number(process.env.NOCTURNE_CONTROL_PORT) || (PORT + 1)
+const CONTROL_MANAGED = process.env.NOCTURNE_MANAGED === '1'
+const CONTROL_URL = `http://127.0.0.1:${CONTROL_PORT}`
 const paths = getPaths()
 const { distDir } = paths
 
 app.disable('x-powered-by')
-app.use(express.json({ limit: '16kb' }))
+
+function normalizeAddress(value) {
+  const address = String(value || '').trim().toLowerCase()
+  return address.startsWith('::ffff:') ? address.slice(7) : address
+}
+
+function clientAddress(req) {
+  return normalizeAddress(req.socket?.remoteAddress || req.ip || '')
+}
+
+function isLoopback(address) {
+  return address === '127.0.0.1' || address === '::1' || address === 'localhost'
+}
+
+function isPrivateAddress(address) {
+  if (isLoopback(address)) return true
+
+  if (/^f[cd][0-9a-f]{2}:/.test(address) || /^fe[89ab][0-9a-f]:/.test(address)) {
+    return true
+  }
+
+  const parts = address.split('.').map((part) => Number(part))
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return false
+  }
+
+  return parts[0] === 10
+    || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31)
+    || (parts[0] === 192 && parts[1] === 168)
+    || (parts[0] === 169 && parts[1] === 254)
+}
+
+function networkInterfaceEntries() {
+  return Object.values(os.networkInterfaces())
+    .flatMap((group) => group || [])
+    .filter((entry) => entry && !entry.internal)
+}
+
+function isLocalMachineAddress(address) {
+  if (isLoopback(address)) return true
+  return networkInterfaceEntries().some(
+    (entry) => normalizeAddress(entry.address) === normalizeAddress(address),
+  )
+}
+
+function lanUrls() {
+  if (!['0.0.0.0', '::', '[::]'].includes(HOST)) return []
+  const urls = new Set()
+
+  for (const entry of networkInterfaceEntries()) {
+    const family = typeof entry.family === 'string' ? entry.family : String(entry.family)
+    if (family !== 'IPv4' && family !== '4') continue
+    urls.add(`http://${entry.address}:${PORT}`)
+  }
+
+  return [...urls]
+}
+
+const allowedOrigins = new Set([
+  `http://127.0.0.1:${PORT}`,
+  `http://localhost:${PORT}`,
+  'http://127.0.0.1:5173',
+  'http://localhost:5173',
+])
+
+const lanBlockedPage = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nocturne is not shared</title></head>
+<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#07060b;color:#f4f1ff;font:16px/1.5 system-ui,sans-serif">
+<main style="max-width:32rem;padding:2rem"><p style="color:#b9a8e8;font-size:.75rem;letter-spacing:.18em;text-transform:uppercase">Nocturne</p>
+<h1 style="letter-spacing:-.04em">This device is not allowed in yet.</h1>
+<p style="color:#b9b3c8">LAN access is turned off. Open Nocturne on the PC running the server, go to Settings, and enable <strong>Watch from another screen</strong>.</p>
+</main></body></html>`
 
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff')
@@ -51,12 +132,35 @@ app.use((req, res, next) => {
   next()
 })
 
-const allowedOrigins = new Set([
-  `http://127.0.0.1:${PORT}`,
-  `http://localhost:${PORT}`,
-  'http://127.0.0.1:5173',
-  'http://localhost:5173',
-])
+// This gate runs before body parsing and before every route. Loopback is
+// always trusted. Other devices must be on a private LAN and the owner must
+// have switched LAN access on; public addresses are never accepted.
+app.use((req, res, next) => {
+  const address = clientAddress(req)
+  if (isLoopback(address)) {
+    next()
+    return
+  }
+
+  const lanEnabled = isLanEnabled()
+  if (!isPrivateAddress(address) || !lanEnabled) {
+    const message = !isPrivateAddress(address)
+      ? 'Nocturne only accepts connections from your local network.'
+      : 'LAN access is off. Enable it in Nocturne Settings on the PC running the server.'
+
+    if (req.path.startsWith('/api/')) {
+      res.status(403).json({ error: { message, code: 'LAN_ACCESS_BLOCKED' } })
+      return
+    }
+
+    res.status(403).type('html').send(lanBlockedPage)
+    return
+  }
+
+  next()
+})
+
+app.use(express.json({ limit: '16kb' }))
 
 app.use('/api', (req, res, next) => {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
@@ -64,15 +168,42 @@ app.use('/api', (req, res, next) => {
     return
   }
 
-  const origin = req.get('Origin')
-  if (origin && !allowedOrigins.has(origin)) {
+  const localOnlyWrites = new Set([
+    '/api/auth/pin',
+    '/api/auth/manual',
+    '/api/auth/rediscover',
+    '/api/auth/disconnect',
+    '/api/network/lan',
+    '/api/system/stop',
+    '/api/system/restart',
+  ])
+  const requestPath = String(req.originalUrl || req.url).split('?')[0]
+  if (localOnlyWrites.has(requestPath) && !isLocalMachineAddress(clientAddress(req))) {
     res.status(403).json({
       error: {
-        message: 'Nocturne rejected a cross-origin request.',
-        code: 'CROSS_ORIGIN_BLOCKED',
+        message: 'Change the Plex connection and network settings on the PC that runs Nocturne.',
+        code: 'SETTINGS_LOCAL_ONLY',
       },
     })
     return
+  }
+
+  const origin = req.get('Origin')
+  if (origin) {
+    const ownOrigin = `${req.protocol}://${req.get('host')}`
+    const lanOrigin = isLanEnabled()
+      && isPrivateAddress(clientAddress(req))
+      && origin === ownOrigin
+
+    if (!allowedOrigins.has(origin) && !lanOrigin) {
+      res.status(403).json({
+        error: {
+          message: 'Nocturne rejected a cross-origin request.',
+          code: 'CROSS_ORIGIN_BLOCKED',
+        },
+      })
+      return
+    }
   }
 
   if (req.get('Sec-Fetch-Site') === 'cross-site') {
@@ -87,6 +218,76 @@ app.use('/api', (req, res, next) => {
 
   next()
 })
+
+function controlInfo() {
+  return {
+    available: CONTROL_MANAGED,
+    port: CONTROL_PORT,
+    url: CONTROL_MANAGED ? CONTROL_URL : null,
+  }
+}
+
+function requireControlAvailable() {
+  if (!CONTROL_MANAGED) {
+    throw new PlexError(
+      'Server controls are available in the installed Nocturne app. Start Nocturne from its desktop shortcut.',
+      { status: 409, code: 'SERVER_CONTROLS_UNAVAILABLE' },
+    )
+  }
+}
+
+async function requestControl(action) {
+  if (!CONTROL_MANAGED) {
+    throw new PlexError(
+      'Server controls are available in the installed Nocturne app. Start Nocturne from its desktop shortcut.',
+      { status: 409, code: 'SERVER_CONTROLS_UNAVAILABLE' },
+    )
+  }
+
+  let response
+  try {
+    response = await fetch(`${CONTROL_URL}/api/${action}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Nocturne-Control': '1',
+      },
+      body: '{}',
+      signal: AbortSignal.timeout(35_000),
+    })
+  } catch (error) {
+    throw new PlexError(
+      'Nocturne could not reach its local server control page.',
+      { status: 502, code: 'CONTROL_UNREACHABLE', detail: error.message },
+    )
+  }
+
+  const text = await response.text()
+  let payload = null
+  try {
+    payload = text ? JSON.parse(text) : null
+  } catch {
+    payload = null
+  }
+
+  if (!response.ok) {
+    throw new PlexError(
+      payload?.error || 'The local server control page refused that action.',
+      { status: 502, code: 'CONTROL_ACTION_FAILED' },
+    )
+  }
+
+  return payload
+}
+
+function requireLocalClient(req) {
+  if (!isLocalMachineAddress(clientAddress(req))) {
+    throw new PlexError(
+      'Start, stop, and restart the server on the PC that runs Nocturne.',
+      { status: 403, code: 'SERVER_CONTROL_LOCAL_ONLY' },
+    )
+  }
+}
 
 function requireConfigured() {
   const status = getPublicStatus()
@@ -154,9 +355,68 @@ app.get('/api/health', async (req, res) => {
     product: 'Nocturne',
     ...status,
     install: getInstallInfo(),
+    network: {
+      lanEnabled: isLanEnabled(),
+      boundHost: HOST,
+      urls: lanUrls(),
+      localClient: isLocalMachineAddress(clientAddress(req)),
+    },
+    control: controlInfo(),
     reachable,
     authError,
     connectionError,
+  })
+})
+
+app.post('/api/network/lan', (req, res) => {
+  if (!isLocalMachineAddress(clientAddress(req))) {
+    throw new PlexError(
+      'Change network access on the PC that runs Nocturne, using its local address.',
+      { status: 403, code: 'LAN_SETTING_LOCAL_ONLY' },
+    )
+  }
+  if (typeof req.body?.enabled !== 'boolean') {
+    throw new PlexError('Choose whether LAN access should be on or off.', {
+      status: 400,
+      code: 'BAD_LAN_SETTING',
+    })
+  }
+
+  setLanEnabled(req.body.enabled)
+  res.json({
+    network: {
+      lanEnabled: isLanEnabled(),
+      boundHost: HOST,
+      urls: lanUrls(),
+    },
+  })
+})
+
+app.post('/api/system/stop', (req, res) => {
+  requireLocalClient(req)
+  requireControlAvailable()
+
+  res.json({ ok: true, controlUrl: CONTROL_URL })
+  res.on('finish', () => {
+    setTimeout(() => {
+      requestControl('stop').catch((error) => {
+        console.warn('[Nocturne] Could not stop the local server:', error.message)
+      })
+    }, 250)
+  })
+})
+
+app.post('/api/system/restart', (req, res) => {
+  requireLocalClient(req)
+  requireControlAvailable()
+
+  res.json({ ok: true, controlUrl: CONTROL_URL })
+  res.on('finish', () => {
+    setTimeout(() => {
+      requestControl('restart').catch((error) => {
+        console.warn('[Nocturne] Could not restart the local server:', error.message)
+      })
+    }, 250)
   })
 })
 
@@ -386,7 +646,13 @@ app.post('/api/player', async (req, res) => {
   const subtitleStreamId = /^\d+$/.test(String(req.body?.subtitleStreamId ?? ''))
     ? String(req.body.subtitleStreamId)
     : null
-  const session = await startPlayback(key, { offsetMs, audioStreamId, subtitleStreamId })
+  const burnSubtitles = req.body?.burnSubtitles === true
+  const session = await startPlayback(key, {
+    offsetMs,
+    audioStreamId,
+    subtitleStreamId,
+    burnSubtitles,
+  })
   res.status(201).json({ session })
 })
 
@@ -503,14 +769,31 @@ app.use((error, req, res, next) => {
   })
 })
 
-app.listen(PORT, HOST, () => {
-  console.log(`\n  Nocturne API ready at http://${HOST}:${PORT}`)
-  if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
-    console.warn('  Warning: the Nocturne API is not bound to this PC only. Keep HOST=127.0.0.1 for local use.')
+const server = app.listen(PORT, HOST, () => {
+  console.log(`\n  Nocturne API ready at http://127.0.0.1:${PORT}`)
+  if (HOST === '127.0.0.1' || HOST === 'localhost') {
+    console.log('  This server is bound to this PC only. Remove HOST from .env to allow LAN access.')
+  } else {
+    console.log(`  Listening on ${HOST}; LAN access is ${isLanEnabled() ? 'on' : 'off'}. Change it in Settings.`)
   }
   if (fs.existsSync(indexFile)) {
-    console.log(`  Built Nocturne app available at http://${HOST}:${PORT}`)
+    console.log(`  Built Nocturne app available at http://127.0.0.1:${PORT}`)
   } else {
     console.log('  Development UI: run npm run dev, then open http://127.0.0.1:5173')
   }
+  if (CONTROL_MANAGED) {
+    console.log(`  Server controls: ${CONTROL_URL}`)
+  }
 })
+
+let shuttingDown = false
+function shutdown(signal) {
+  if (shuttingDown) return
+  shuttingDown = true
+  console.log(`[Nocturne] ${signal} received; closing the local server.`)
+  server.close(() => process.exit(0))
+  setTimeout(() => process.exit(0), 2000).unref()
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))

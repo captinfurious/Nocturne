@@ -30,6 +30,7 @@ function emptyConfig() {
     token: null,
     server: null,
     account: null,
+    network: { lanEnabled: false },
     createdAt: nowIso(),
     updatedAt: nowIso(),
   }
@@ -46,6 +47,11 @@ export function readConfig() {
       ...emptyConfig(),
       ...parsed,
       clientIdentifier: parsed.clientIdentifier || crypto.randomUUID(),
+      network: {
+        ...emptyConfig().network,
+        ...(parsed.network && typeof parsed.network === 'object' ? parsed.network : {}),
+        lanEnabled: Boolean(parsed.network?.lanEnabled),
+      },
     }
   } catch (error) {
     if (error.code !== 'ENOENT') {
@@ -86,6 +92,21 @@ export function clearConnection() {
     token: null,
     server: null,
     account: null,
+  })
+}
+
+export function isLanEnabled() {
+  return Boolean(readConfig().network?.lanEnabled)
+}
+
+export function setLanEnabled(enabled) {
+  const current = readConfig()
+  return writeConfig({
+    ...current,
+    network: {
+      ...current.network,
+      lanEnabled: Boolean(enabled),
+    },
   })
 }
 

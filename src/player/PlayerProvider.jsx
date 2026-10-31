@@ -34,7 +34,7 @@ export function PlayerProvider({ children }) {
   const begin = useCallback(async (
     item,
     offsetMs,
-    { audioStreamId = null, subtitleStreamId = null } = {},
+    { audioStreamId = null, subtitleStreamId = null, burnSubtitles = false } = {},
   ) => {
     const requestId = ++requestRef.current
     const startAt = Math.max(0, Math.round(Number(offsetMs) || 0))
@@ -46,7 +46,7 @@ export function PlayerProvider({ children }) {
       phase: 'starting',
       error: null,
       pendingOffset: startAt,
-      selection: { audioStreamId, subtitleStreamId },
+      selection: { audioStreamId, subtitleStreamId, burnSubtitles: Boolean(burnSubtitles) },
       nextEpisode: null,
     })
 
@@ -55,6 +55,7 @@ export function PlayerProvider({ children }) {
         offsetMs: startAt,
         audioStreamId,
         subtitleStreamId,
+        burnSubtitles: Boolean(burnSubtitles),
       })
       if (requestRef.current !== requestId) {
         api.stopPlayback(result.session.sessionId, { timeMs: startAt }).catch(() => {})
@@ -69,6 +70,7 @@ export function PlayerProvider({ children }) {
         selection: {
           audioStreamId: result.session.selectedAudioId || null,
           subtitleStreamId: result.session.selectedSubtitleId || null,
+          burnSubtitles: Boolean(result.session.burnSubtitles),
         },
         nextEpisode: result.session.nextEpisode || null,
       })
@@ -110,6 +112,7 @@ export function PlayerProvider({ children }) {
 
     const hasAudioChoice = Object.prototype.hasOwnProperty.call(selection, 'audioStreamId')
     const hasSubtitleChoice = Object.prototype.hasOwnProperty.call(selection, 'subtitleStreamId')
+    const hasBurnChoice = Object.prototype.hasOwnProperty.call(selection, 'burnSubtitles')
 
     begin(current.item, offsetMs, {
       audioStreamId: hasAudioChoice
@@ -118,6 +121,9 @@ export function PlayerProvider({ children }) {
       subtitleStreamId: hasSubtitleChoice
         ? selection.subtitleStreamId
         : current.selection?.subtitleStreamId ?? null,
+      burnSubtitles: hasBurnChoice
+        ? Boolean(selection.burnSubtitles)
+        : Boolean(current.selection?.burnSubtitles),
     })
   }, [begin])
 

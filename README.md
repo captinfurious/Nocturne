@@ -6,10 +6,11 @@ distinct interface: a cinematic hero, a black-and-red top-navigation layout, hor
 rows, a ranked Top 10, My List, real resume progress, search, library browsing, title and season
 details, and an in-app player that streams straight from Plex.
 
-**Current version:** 1.2.0 — desktop and responsive web with the streaming redesign, My List,
+**Current version:** 1.3.0 — desktop and responsive web with the streaming redesign, My List,
 in-app playback with audio/subtitle tracks, Skip Intro, next-episode autoplay, continuous Home
-catalogs, and a per-user, self-contained Windows app installer with a standalone launcher,
-optional login startup, and a private Node runtime when one is needed.
+catalogs, optional LAN viewing from other devices on your own Wi-Fi, and a per-user,
+self-contained Windows app installer with a standalone launcher, optional login startup, and a
+private Node runtime when one is needed.
 
 **New to Nocturne?** Follow the step-by-step **[download and Windows installation guide](TUTORIAL.md)**.
 
@@ -37,17 +38,22 @@ optional login startup, and a private Node runtime when one is needed.
 - Paginated movie and TV library pages with sorting.
 - Movie and series detail pages, season switching, episode lists, and watch progress.
 - Built-in player with resume, seeking, volume, fullscreen, keyboard shortcuts, and buffering states.
-- Audio and subtitle track menus. Text subtitles are converted to WebVTT and drawn over the video;
-  image subtitles (PGS, VOBSUB) are burned in by Plex.
+- Audio and subtitle track menus. Text subtitles are fetched and validated before playback and
+drawn over the video; if Plex cannot convert a track, Nocturne restarts with burn-in automatically.
+  Image subtitles (PGS, VOBSUB) are always burned in by Plex.
 - Skip Intro using Plex's detected intro markers, plus automatic next-episode playback with an
   eight-second countdown and a cancel button.
 - Direct play for browser-compatible files; automatic Plex HLS transcoding for everything else.
 - Watch progress and finished titles are written back to Plex, so Continue Watching stays current.
+- Optional LAN mode so a phone, tablet, or TV browser on the same Wi-Fi can open Nocturne. Off by
+  default, private-network addresses only, and the Plex token still stays on the host PC.
 - Plex token and all Plex API requests stay on the local backend. The browser never receives the token.
 - Loading skeletons, empty states, connection errors, retry actions, and a Plex-offline banner.
 - Responsive layout for desktop, tablet, and mobile, with a TV-oriented larger layout at wide viewports.
 - Windows app installer with a standalone `Nocturne.exe` launcher, Start Menu/desktop shortcuts,
   an uninstaller, and optional per-user login startup.
+- In-app server controls: restart the local server, or stop it and use the private
+  `127.0.0.1` control page to start it again without the Start Menu.
 
 The app never renames, moves, deletes, or modifies your media files. It only reads library metadata
 and artwork from Plex.
@@ -102,12 +108,13 @@ writes only to your own Windows profile. The private Node runtime is kept inside
 | Server log | `%LOCALAPPDATA%\Programs\Nocturne\logs\server.log` |
 | Shortcuts | Desktop and Start Menu → Nocturne |
 | Optional startup entry | Your Startup folder (`Nocturne.lnk`) |
-| Local app address | `127.0.0.1` on a private per-account port |
+| Local app address | `127.0.0.1` on a private per-account port; LAN address appears in Settings when enabled |
 
 Nocturne itself does not modify Plex, your media, Windows services, firewall rules, hosts file, or
-system-wide settings. The app listens on `127.0.0.1` only. Each Windows account gets its own private local
-port (usually in the 8800–9299 range), so accounts on a shared PC normally get separate local
-servers instead of sharing port 8787. Source mode still uses port 8787.
+system-wide settings. The app listens on a private per-account port and keeps other devices out
+until you enable **Settings → Network → Watch from another screen**. Each Windows account gets its
+own private local port (usually in the 8800–9299 range), so accounts on a shared PC normally get
+separate local servers instead of sharing port 8787. Source mode still uses port 8787.
 
 **Sharing it with someone else:** send them the project folder or publish the repository. Each
 person installs it under their own Windows account and signs in with their own Plex account. Plex
@@ -115,8 +122,19 @@ decides which shared libraries that account can see. Never copy a `data\config.j
 to another person; a token is equivalent to access to that Plex account.
 
 **Daily use:** open **Nocturne** from the Start Menu. Closing the Nocturne window stops playback
-but leaves the local server ready for a fast reopen. To stop the server completely, use Start
-Menu → Nocturne → **Stop Nocturne**, or sign out of Windows.
+but leaves the local server ready for a fast reopen. To restart or stop it, open
+**Settings → Local server → Server controls**. Stopping opens a private control page at
+`http://127.0.0.1:<Nocturne port + 1>`; use **Start server** there to bring Nocturne back. Start
+Menu → Nocturne → **Stop Nocturne** also stops everything, and signing out of Windows stops it.
+
+**Watch on another device:** open **Settings → Network → Watch from another screen** on the PC.
+When it is on, Settings shows an address such as `http://192.168.1.25:8800`. Enter that in the
+browser on a phone, tablet, or TV on the same Wi-Fi. The PC must stay awake with Plex and Nocturne
+running. If the other device cannot connect, allow Node.js or Nocturne through Windows Firewall for
+**private** networks; guest Wi-Fi and access-point isolation will also block it. LAN mode is off by
+default and only accepts private network addresses. Settings that change the Plex connection or LAN
+mode are accepted only on the PC itself. Anyone on your Wi-Fi can browse and play while LAN mode is
+on, so leave it off on networks you do not trust and never port-forward the port.
 
 **Turn startup off:** run `windows\Install Nocturne.cmd` and answer **No** to the startup question.
 The installer also updates the app, keeps your Plex sign-in, and replaces the old shortcuts. Running
@@ -309,7 +327,8 @@ player closes.
 - **← / →** skip 10 seconds, **J / L** skip 30 seconds.
 - **↑ / ↓** change volume, **M** mutes, **F** toggles fullscreen, **C** opens audio/subtitles,
   **Esc** closes the menu or the player.
-- The track menu switches audio without leaving the player. Text subtitles switch instantly; image
+- The track menu switches audio without leaving the player. Text subtitles switch instantly. If
+  Plex cannot deliver a text track as WebVTT, Nocturne retries the same track with burn-in; image
   subtitles restart the stream so Plex can burn them into the picture.
 - **Skip Intro** appears while Plex's intro marker is active and jumps to the end of the intro.
 - When an episode ends and another episode follows, the player counts down and starts it
@@ -324,7 +343,8 @@ player closes.
 - Seeking inside a transcoded title restarts the Plex transcode at the new position. That is reliable
   across Plex versions, but it is not instant like direct play.
 - Changing the audio track restarts the Plex stream at the current position so the chosen track is
-  used. Text subtitles do not restart anything; image subtitles do, because Plex has to burn them in.
+  used. Text subtitles normally do not restart anything. If a text track cannot be delivered, or
+  you chose an image format, Nocturne restarts once so Plex can burn it in.
 - Skip Intro only appears when Plex has intro detection data for that episode. Autoplay only runs
   when a next episode exists in Plex.
 - The player falls back to **Open in Plex** if Plex cannot produce a stream. That button opens the
@@ -342,14 +362,22 @@ stream them.
   permissions where the operating system supports them.
 - The browser calls Nocturne's local API; the API adds the Plex token to Plex requests.
 - Artwork is proxied through Nocturne as well, because Plex image URLs also require the token.
-- The API binds to `127.0.0.1` only. It is not reachable from your LAN by default.
+- The server accepts loopback requests and, only after LAN mode is enabled, requests from private
+  LAN addresses. Public internet addresses are always rejected. It has no per-user login of its own.
+- LAN mode is off by default. While it is on, anyone on your Wi-Fi who knows the address can open
+  Nocturne and watch your library. Use it only on a network you trust, and turn it off when you are
+  away or on public Wi-Fi.
+- Plex connection changes, the LAN switch, and server stop/restart controls are accepted only
+  from the PC itself, so another device cannot disconnect Plex or change the server.
+- The server control page listens only on `127.0.0.1` (one port above the app), is never exposed to
+  the LAN, and only accepts same-origin control requests.
 - The built app sends a strict Content Security Policy and state-changing API calls reject
-  cross-origin requests.
+  cross-origin requests. LAN-mode writes must come from Nocturne's own page.
 - `.env`, `data/`, `dist/`, `node_modules/`, and `.tools/` are git-ignored.
 
-**Do not change `HOST` to `0.0.0.0` and expose Nocturne's local port to the internet.** Nocturne
-currently trusts requests from your local machine and has no account system of its own. A future
-remote/TV version needs real authentication in front of the API.
+**Do not port-forward Nocturne's port or expose it to the internet.** LAN mode is for your own
+private network, not remote access, and Nocturne has no account system of its own. A future
+remote/TV service needs real authentication in front of the API.
 
 ---
 
@@ -359,6 +387,7 @@ remote/TV version needs real authentication in front of the API.
 Nocturne/
 ├─ server/
 │  ├─ index.js        Local Express API, setup routes, static hosting, security headers
+│  ├─ control.js      Loopback-only supervisor and start/stop/restart page
 │  ├─ plexAuth.js     Plex PIN sign-in, plex.tv resource discovery, token validation
 │  ├─ plex.js         Server-side Plex API client, image proxy, Plex Web deep links
 │  ├─ player.js       In-app playback sessions, direct streaming, HLS proxy, Plex progress
@@ -390,6 +419,8 @@ Nocturne/
 
 ```text
 GET  /api/health
+POST /api/system/stop
+POST /api/system/restart
 GET  /api/libraries
 GET  /api/home?refresh=1
 GET  /api/home/all?type=movie|show&start=0&size=60
@@ -403,7 +434,8 @@ GET  /api/auth/pin/:id
 POST /api/auth/manual
 POST /api/auth/rediscover
 POST /api/auth/disconnect
-POST /api/player                 → create a temporary playback session
+POST /api/network/lan            → turn LAN access on/off (PC only)
+POST /api/player                 → create a temporary playback session; accepts burnSubtitles
 GET  /api/player/:id/master.m3u8 → proxied Plex HLS master playlist
 GET  /api/player/:id/hls?u=...    → proxied HLS playlist or segment
 GET  /api/player/:id/stream       → direct-play media with range support
@@ -526,8 +558,13 @@ This build was verified end to end against an isolated mock Plex + plex.tv API:
 - The black-and-red redesign: top navigation, hero, hover cards, ranked Top 10, My List persistence,
   the continuous All movies and All shows Home catalogs, title pages, search, library, settings,
   mobile layout, and console errors.
-- Audio and subtitle menus: text subtitles loading as WebVTT, image subtitles restarting with burn-in,
-  switching audio tracks at the current position, and retaining both choices across a seek or restart.
+- Audio and subtitle menus: text subtitles preflighted as WebVTT, automatic burn-in fallback when a
+  text track fails, image subtitles restarting with burn-in, switching audio tracks at the current
+  position, and retaining both choices across a seek or restart.
+- LAN mode: loopback always allowed, private LAN addresses rejected until enabled, public addresses
+  rejected, same-origin writes allowed, and cross-origin writes refused.
+- Server controls: restarting from Settings, stopping from Settings, starting again from the
+  loopback-only control page, and confirming that the control page is not reachable from the LAN.
 - Skip Intro appearing inside the marker window and jumping past it, and the next-episode countdown
   starting the following episode automatically.
 - Production build and local Express hosting.
@@ -594,8 +631,10 @@ player and the `/api/player` session API are the reusable playback layer for tho
 - No Plex music/photo libraries. Nocturne is film and TV focused.
 - The UI is optimized for desktop/mobile/large screens; full remote-control navigation is future
   work.
-- Remote Plex access, authentication for other devices, and multi-user security are outside the
-  1.0 scope.
+- LAN mode is intended for a trusted home network and has no per-device login. Remote Plex access,
+  internet exposure, and multi-user security remain outside this version's scope.
+- Subtitle success still depends on Plex converting or burning the file. If a track is empty or
+  damaged at the source, switching to another track is the reliable workaround.
 
 ---
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AudioLines,
   Captions,
@@ -50,6 +50,61 @@ function episodeLabel(item) {
   return [item.episodeCode, item.episodeTitle].filter(Boolean).join(' · ')
 }
 
+function parseVttTimestamp(value) {
+  const match = String(value).trim().match(/^(?:(\d{1,3}):)?(\d{1,2}):(\d{2})[.,](\d{3})$/)
+  if (!match) return null
+  const hours = Number(match[1] || 0)
+  const minutes = Number(match[2])
+  const seconds = Number(match[3])
+  const millis = Number(match[4])
+  return ((hours * 60 + minutes) * 60 + seconds) * 1000 + millis
+}
+
+function cleanCueText(text) {
+  return String(text)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .trim()
+}
+
+// Render subtitles ourselves instead of handing a blob to <track>. Native
+// track rendering is inconsistent across browsers and fails silently when a
+// Plex conversion produces no cues; parsing here lets us detect that case and
+// restart with Plex burn-in instead of leaving the viewer with no captions.
+function parseVttCues(text) {
+  const cues = []
+  const blocks = String(text)
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n?/g, '\n')
+    .split(/\n{2,}/)
+
+  for (const block of blocks) {
+    const lines = block.split('\n')
+    const timingIndex = lines.findIndex((line) => line.includes('-->'))
+    if (timingIndex < 0) continue
+
+    const timing = lines[timingIndex].match(
+      /^\s*((?:\d{1,3}:)?\d{1,2}:\d{2}[.,]\d{3})\s+-->\s+((?:\d{1,3}:)?\d{1,2}:\d{2}[.,]\d{3})/,
+    )
+    if (!timing) continue
+
+    const start = parseVttTimestamp(timing[1])
+    const end = parseVttTimestamp(timing[2])
+    if (start === null || end === null || end <= start) continue
+
+    const body = cleanCueText(lines.slice(timingIndex + 1).join('\n'))
+    if (body) cues.push({ start, end, text: body })
+  }
+
+  return cues.sort((left, right) => left.start - right.start)
+}
+
 export function PlayerOverlay({
   playback,
   onClose,
@@ -85,13 +140,20 @@ export function PlayerOverlay({
   const [menuOpen, setMenuOpen] = useState(false)
   const [selectedAudioId, setSelectedAudioId] = useState(null)
   const [selectedSubtitleId, setSelectedSubtitleId] = useState(null)
+  const [subtitleStatus, setSubtitleStatus] = useState(null)
+  const [subtitleCues, setSubtitleCues] = useState([])
+  const [subtitleLoading, setSubtitleLoading] = useState(false)
   const [autoPlayOff, setAutoPlayOff] = useState(false)
   const [countdown, setCountdown] = useState(null)
+  const subtitleFallbackRef = useRef(false)
+  const subtitleRequestRef = useRef(0)
 
   const audioTracks = session?.streams?.audio || []
   const subtitleTracks = session?.streams?.subtitles || []
   const selectedSubtitle = subtitleTracks.find((track) => track.id === selectedSubtitleId) || null
-  const subtitleUrl = selectedSubtitle && !selectedSubtitle.isImage ? selectedSubtitle.url : null
+  const selectedSubtitleUrl = selectedSubtitle && !selectedSubtitle.isImage
+    ? selectedSubtitle.url
+    : null
   const introMarker = session?.markers?.intro || null
   const canSkipIntro = Boolean(
     introMarker && timeMs >= introMarker.startMs - 1500 && timeMs < introMarker.endMs - 1000,
@@ -99,6 +161,14 @@ export function PlayerOverlay({
 
   const duration = Math.max(0, session?.durationMs || item?.duration || 0)
   const displayTime = scrubMs ?? timeMs
+  const activeCaption = useMemo(() => {
+    if (!subtitleCues.length) return ''
+    const current = Math.max(0, timeMs)
+    return subtitleCues
+      .filter((cue) => current >= cue.start && current < cue.end)
+      .map((cue) => cue.text)
+      .join('\n')
+  }, [subtitleCues, timeMs])
   const title = item?.type === 'episode' ? item?.seriesTitle || item?.title : item?.title
   const subtitle = item?.type === 'episode'
     ? episodeLabel(item)
@@ -175,8 +245,12 @@ export function PlayerOverlay({
     timeRef.current = target
     setTimeMs(target)
     onReport(target, 'buffering')
-    onRestart(target, { audioStreamId: selectedAudioId, subtitleStreamId: selectedSubtitleId })
-  }, [duration, onReport, onRestart, readTime, selectedAudioId, selectedSubtitleId])
+    onRestart(target, {
+      audioStreamId: selectedAudioId,
+      subtitleStreamId: selectedSubtitleId,
+      burnSubtitles: Boolean(session?.burnSubtitles),
+    })
+  }, [duration, onReport, onRestart, readTime, selectedAudioId, selectedSubtitleId, session?.burnSubtitles])
 
   const seekBy = useCallback((deltaMs) => {
     seekTo(readTime() + deltaMs)
@@ -197,8 +271,9 @@ export function PlayerOverlay({
     onRestart(Math.max(0, readTime()), {
       audioStreamId: selectedAudioId,
       subtitleStreamId: selectedSubtitleId,
+      burnSubtitles: Boolean(session?.burnSubtitles),
     })
-  }, [onRestart, readTime, selectedAudioId, selectedSubtitleId])
+  }, [onRestart, readTime, selectedAudioId, selectedSubtitleId, session?.burnSubtitles])
 
   const chooseAudio = useCallback((track) => {
     if (!track || track.id === selectedAudioId) return
@@ -206,23 +281,110 @@ export function PlayerOverlay({
     onRestart(readTime(), {
       audioStreamId: track.id,
       subtitleStreamId: selectedSubtitleId,
+      burnSubtitles: Boolean(session?.burnSubtitles),
     })
-  }, [onRestart, readTime, selectedAudioId, selectedSubtitleId])
+  }, [onRestart, readTime, selectedAudioId, selectedSubtitleId, session?.burnSubtitles])
 
   const chooseSubtitle = useCallback((track) => {
     const nextId = track?.id || null
     if (nextId === selectedSubtitleId) return
     setSelectedSubtitleId(nextId)
+    setSubtitleCues([])
+    setSubtitleStatus(null)
+    subtitleFallbackRef.current = false
 
-    // Plex has to burn image subtitles into the video, and it has to restart
-    // the stream to remove a track that was already burned in.
-    if (track?.isImage || session?.burnSubtitles) {
+    // Image formats only exist inside Plex's transcoded picture. Text tracks
+    // are fetched and drawn by Nocturne, but the stream still has to restart
+    // to remove a subtitle that was burned into the previous video.
+    if (track?.isImage) {
       onRestart(readTime(), {
         audioStreamId: selectedAudioId,
         subtitleStreamId: nextId,
+        burnSubtitles: true,
+      })
+    } else if (session?.burnSubtitles) {
+      onRestart(readTime(), {
+        audioStreamId: selectedAudioId,
+        subtitleStreamId: nextId,
+        burnSubtitles: false,
       })
     }
   }, [onRestart, readTime, selectedAudioId, selectedSubtitleId, session?.burnSubtitles])
+
+  const fallBackToBurn = useCallback(() => {
+    const current = sessionRef.current
+    const track = current?.streams?.subtitles?.find(
+      (entry) => entry.id === selectedSubtitleId,
+    )
+
+    if (!track || track.isImage || current?.burnSubtitles || subtitleFallbackRef.current) {
+      if (!current?.burnSubtitles) {
+        setSubtitleStatus({
+          kind: 'error',
+          text: 'This subtitle track could not be displayed. Try another track or open the title in Plex.',
+        })
+      }
+      return
+    }
+
+    subtitleFallbackRef.current = true
+    setSubtitleStatus({
+      kind: 'working',
+      text: 'Plex could not send this subtitle as text. Restarting with burn-in…',
+    })
+    onRestart(readTime(), {
+      audioStreamId: selectedAudioId,
+      subtitleStreamId: track.id,
+      burnSubtitles: true,
+    })
+  }, [onRestart, readTime, selectedAudioId, selectedSubtitleId])
+
+  // Fetch and parse the subtitle before showing it. A successful HTTP response
+  // is not enough: Plex can return an empty or cue-less conversion, and native
+  // <track> rendering then fails without an error. Parsing here catches that.
+  useEffect(() => {
+    const requestId = ++subtitleRequestRef.current
+    setSubtitleCues([])
+    setSubtitleLoading(false)
+
+    if (!selectedSubtitleUrl) return undefined
+
+    const controller = new AbortController()
+    setSubtitleLoading(true)
+    setSubtitleStatus({ kind: 'working', text: 'Loading this subtitle…' })
+
+    fetch(selectedSubtitleUrl, {
+      signal: controller.signal,
+      cache: 'no-store',
+      headers: { Accept: 'text/vtt' },
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Subtitle request failed (HTTP ${response.status}).`)
+        const body = await response.text()
+        if (!body.trim() || !/^\uFEFF?WEBVTT/.test(body.trimStart())) {
+          throw new Error('Plex did not return a WebVTT subtitle.')
+        }
+        if (requestId !== subtitleRequestRef.current) return
+
+        const cues = parseVttCues(body)
+        if (!cues.length) throw new Error('Plex returned a subtitle with no readable cues.')
+
+        setSubtitleCues(cues)
+        setSubtitleLoading(false)
+        setSubtitleStatus(null)
+      })
+      .catch((error) => {
+        if (error?.name === 'AbortError' || requestId !== subtitleRequestRef.current) return
+        setSubtitleLoading(false)
+        fallBackToBurn()
+      })
+
+    return () => controller.abort()
+  }, [selectedSubtitleUrl, fallBackToBurn])
+
+  useEffect(() => () => {
+    subtitleRequestRef.current += 1
+  }, [])
 
   useEffect(() => {
     sessionRef.current = session
@@ -237,17 +399,17 @@ export function PlayerOverlay({
     timeRef.current = session.offsetMs || 0
     setSelectedAudioId(session.selectedAudioId || null)
     setSelectedSubtitleId(session.selectedSubtitleId || null)
+    setSubtitleCues([])
+    subtitleFallbackRef.current = false
+    setSubtitleStatus(session.burnSubtitles && session.selectedSubtitleId
+      ? {
+          kind: 'info',
+          text: 'Plex is burning this subtitle into the video. It may take a moment to appear.',
+        }
+      : null)
     setMenuOpen(false)
     setAutoPlayOff(false)
   }, [session])
-
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
-    for (const track of video.textTracks) {
-      track.mode = subtitleUrl ? 'showing' : 'disabled'
-    }
-  }, [subtitleUrl, session])
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement
@@ -584,21 +746,13 @@ export function PlayerOverlay({
               'The browser could not play this file directly. Try again, or open it in Plex.',
             ))
           }}
-        >
-          {subtitleUrl ? (
-            <track
-              key={subtitleUrl}
-              kind="subtitles"
-              src={subtitleUrl}
-              srcLang={selectedSubtitle?.languageCode || 'en'}
-              label={selectedSubtitle?.displayTitle || 'Subtitles'}
-              default
-              onLoad={(event) => {
-                if (event.currentTarget.track) event.currentTarget.track.mode = 'showing'
-              }}
-            />
-          ) : null}
-        </video>
+        />
+      ) : null}
+
+      {showVideo && activeCaption ? (
+        <div className="player-captions" aria-live="off">
+          <span>{activeCaption}</span>
+        </div>
       ) : null}
 
       <div className="player-overlay__shade" aria-hidden="true" />
@@ -923,6 +1077,9 @@ export function PlayerOverlay({
                   <h4>
                     <Captions size={14} />
                     Subtitles
+                    {subtitleLoading ? (
+                      <LoaderCircle size={12} className="spin" aria-label="Loading subtitles" />
+                    ) : null}
                   </h4>
                   <button
                     type="button"
@@ -956,9 +1113,22 @@ export function PlayerOverlay({
                 </section>
               </div>
 
+              {subtitleStatus ? (
+                <p className={`player-tracks__note player-tracks__note--${subtitleStatus.kind}`}>
+                  {subtitleStatus.text}
+                </p>
+              ) : null}
+
               {subtitleTracks.some((track) => track.isImage) ? (
                 <p className="player-tracks__note">
                   Image subtitles restart the stream so Plex can burn them into the picture.
+                </p>
+              ) : null}
+
+              {subtitleTracks.some((track) => !track.isImage) ? (
+                <p className="player-tracks__note">
+                  Text subtitles load instantly. If Plex cannot convert one, Nocturne
+                  restarts the stream and burns it in automatically.
                 </p>
               ) : null}
             </div>

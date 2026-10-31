@@ -32,7 +32,10 @@ function Stop-NocturneServer {
             if (
                 $insideApp -and
                 $commandLine.IndexOf('server', [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
-                $commandLine.IndexOf('index.js', [StringComparison]::OrdinalIgnoreCase) -ge 0
+                (
+                    $commandLine.IndexOf('index.js', [StringComparison]::OrdinalIgnoreCase) -ge 0 -or
+                    $commandLine.IndexOf('control.js', [StringComparison]::OrdinalIgnoreCase) -ge 0
+                )
             ) {
                 Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
                 Write-Host ('    Stopped Nocturne server (PID ' + $process.ProcessId + ').')

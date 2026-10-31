@@ -79,7 +79,8 @@ function Select-NocturnePort {
 
         try {
             $listeners = Get-NetTCPConnection -LocalPort $candidate -State Listen -ErrorAction SilentlyContinue
-            if (-not $listeners) { return $candidate }
+            $controlListeners = Get-NetTCPConnection -LocalPort ($candidate + 1) -State Listen -ErrorAction SilentlyContinue
+            if (-not $listeners -and -not $controlListeners) { return $candidate }
         } catch {
             return $candidate
         }
@@ -167,7 +168,10 @@ function Stop-NocturneServer {
             if (
                 $insideApp -and
                 $commandLine.IndexOf('server', [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
-                $commandLine.IndexOf('index.js', [StringComparison]::OrdinalIgnoreCase) -ge 0
+                (
+                    $commandLine.IndexOf('index.js', [StringComparison]::OrdinalIgnoreCase) -ge 0 -or
+                    $commandLine.IndexOf('control.js', [StringComparison]::OrdinalIgnoreCase) -ge 0
+                )
             ) {
                 Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
                 Write-Host ('    Stopped an older Nocturne server (PID ' + $process.ProcessId + ').')

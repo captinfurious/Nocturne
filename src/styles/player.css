@@ -575,6 +575,42 @@ body.is-player-open {
   line-height: 1.55;
 }
 
+.player-tracks__note--working {
+  color: rgba(196, 177, 255, 0.82);
+}
+
+.player-tracks__note--error {
+  border-top-color: rgba(255, 138, 151, 0.18);
+  color: rgba(255, 170, 178, 0.82);
+}
+
+.player-captions {
+  position: absolute;
+  right: 8%;
+  bottom: 104px;
+  left: 8%;
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  color: #ffffff;
+  font-family: var(--font-sans, sans-serif);
+  font-size: clamp(17px, 2.1vw, 28px);
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.95);
+  white-space: pre-line;
+}
+
+.player-captions span {
+  padding: 0.08em 0.42em;
+  border-radius: 0.24em;
+  background: rgba(0, 0, 0, 0.58);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .player-ended__next {
   margin-top: 5px !important;
   color: rgba(255, 255, 255, 0.66) !important;
@@ -651,6 +687,13 @@ body.is-player-open {
     left: 14px;
     width: auto;
     max-height: 62vh;
+  }
+
+  .player-captions {
+    right: 5%;
+    bottom: 88px;
+    left: 5%;
+    font-size: clamp(16px, 4.2vw, 22px);
   }
 
   .player-tracks__columns {

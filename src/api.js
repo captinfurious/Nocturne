@@ -69,6 +69,22 @@ export const api = {
     return request('/api/libraries', { signal })
   },
 
+  setLan(enabled, signal) {
+    return request('/api/network/lan', {
+      method: 'POST',
+      body: { enabled: Boolean(enabled) },
+      signal,
+    })
+  },
+
+  stopServer(signal) {
+    return request('/api/system/stop', { method: 'POST', body: {}, signal })
+  },
+
+  restartServer(signal) {
+    return request('/api/system/restart', { method: 'POST', body: {}, signal })
+  },
+
   home(signal, { refresh = false } = {}) {
     return request(`/api/home${refresh ? '?refresh=1' : ''}`, { signal })
   },
@@ -117,7 +133,11 @@ export const api = {
     return request('/api/auth/disconnect', { method: 'POST', signal })
   },
 
-  startPlayback(ratingKey, { offsetMs = 0, audioStreamId, subtitleStreamId } = {}, signal) {
+  startPlayback(
+    ratingKey,
+    { offsetMs = 0, audioStreamId, subtitleStreamId, burnSubtitles = false } = {},
+    signal,
+  ) {
     return request('/api/player', {
       method: 'POST',
       body: {
@@ -125,6 +145,7 @@ export const api = {
         offsetMs,
         audioStreamId: audioStreamId || undefined,
         subtitleStreamId: subtitleStreamId || undefined,
+        burnSubtitles: burnSubtitles || undefined,
       },
       signal,
     })

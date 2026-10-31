@@ -194,8 +194,38 @@ If you enabled startup, the server is already running in the background after yo
 Opening the shortcut just reopens the app window.
 
 **Closing the Nocturne window stops playback but leaves the server running** so the next launch is
-fast. To stop it completely, open Start Menu → **Nocturne** → **Stop Nocturne**. Signing out or
+fast. To restart or stop it from inside the app, go to **Settings → Local server → Server
+controls**. Stopping Nocturne opens a private control page at an address like
+`http://127.0.0.1:8801` (one port above Nocturne's own address). Use **Start server** there to
+bring Nocturne back without finding the Start Menu. The control page only works on the PC itself.
+
+You can also stop everything with Start Menu → **Nocturne** → **Stop Nocturne**. Signing out or
 restarting Windows also stops it.
+
+### Watch on another device on your Wi-Fi
+
+You can open the same Nocturne app in a browser on a phone, tablet, or TV without installing
+anything else there.
+
+1. On the PC, open Nocturne and go to **Settings → Network**.
+2. Turn on **Watch from another screen**.
+3. Nocturne shows an address such as `http://192.168.1.25:8800`. Type that exact address into the
+   other device's browser. It must be on the same Wi-Fi or wired network.
+4. Keep the PC awake and leave Plex and Nocturne running. Playback still comes from Plex on the PC.
+
+If the page does not load, allow **Node.js** (the bundled runtime is `runtime\node.exe`) or
+**Nocturne** through Windows Firewall for **Private** networks. The first launch may show a Windows
+firewall prompt; choose **Allow** on private networks. Guest Wi-Fi and routers with “AP isolation”
+block device-to-device traffic, so use the main home Wi-Fi.
+
+LAN mode is off by default. While it is on, anyone on your Wi-Fi who knows the address can open
+Nocturne and watch your library. Turn it off in Settings when you do not need it. Plex connection
+and network changes only work on the PC itself, so another device cannot disconnect Plex. Do **not**
+forward this port on your router or expose it to the internet; there is no separate Nocturne
+account login.
+
+If Settings says **No usable network address was found**, check that the PC is on Wi-Fi or Ethernet.
+If you created a `.env` file and set `HOST=127.0.0.1`, remove that line and restart Nocturne.
 
 ### Turn startup on or off
 
@@ -253,10 +283,12 @@ The keyboard shortcuts are **Space** (play/pause), **← / →** (10 seconds), *
 (close the menu or the player).
 
 Click the speech-bubble icon in the player controls to choose an **audio track** or **subtitles**.
-Text subtitles appear immediately. Image subtitle formats such as PGS have to be burned into the
-picture by Plex, so the stream restarts briefly when you pick one. **Skip Intro** appears while
-Plex's detected intro is playing. When an episode ends, Nocturne counts down to the next episode
-and plays it automatically unless you press **Cancel autoplay**.
+Text subtitles appear immediately. Nocturne first checks that Plex can actually deliver the track;
+if it cannot, it automatically restarts the stream and asks Plex to burn that subtitle into the
+picture. Image subtitle formats such as PGS always use burn-in, so the stream restarts briefly when
+you pick one. **Skip Intro** appears while Plex's detected intro is playing. When an episode ends,
+Nocturne counts down to the next episode and plays it automatically unless you press
+**Cancel autoplay**.
 
 **Progress is saved to Plex.** If you stop halfway through, the title appears in Continue Watching
 at that position. If you watch to the end, Plex marks it watched.
@@ -308,6 +340,28 @@ again. If it keeps failing, read the server log above.
 
 Complete the setup screen. If Plex was working before, open **Settings** and click
 **Test connection**, or sign in again.
+
+### Subtitles do not appear
+
+- Pick the subtitle again from the player's speech-bubble menu. Nocturne now verifies the track and
+  retries with Plex burn-in when the text version fails.
+- When burn-in is used, the player shows **Plex is burning this subtitle into the video**. Give Plex
+  a few seconds to prepare the restarted stream.
+- Try another subtitle track. A damaged or empty external subtitle file can still have nothing to
+  display even after burn-in.
+- Image formats such as PGS always require Plex to transcode. Check that Plex is not overloaded; 4K
+  burn-in can take a while on a slow CPU.
+- If it still fails, look at `%LOCALAPPDATA%\Programs\Nocturne\logs\server.log` for a line beginning
+  with `[Nocturne] Could not load subtitle`, and open the same title in Plex Web to compare.
+
+### Another device cannot open Nocturne
+
+- Confirm **Settings → Network → Watch from another screen** is on and use the address shown there.
+- Both devices must be on the same home network. Guest Wi-Fi, VPNs, and AP isolation can block it.
+- Allow Node.js or Nocturne through Windows Firewall for **Private** networks.
+- The PC must be awake; sleep stops the server.
+- If the page says **This device is not allowed in yet**, LAN mode is off. Turn it on from the PC.
+- Do not port-forward the address; LAN mode is not intended for internet access.
 
 ### "Plex is offline"
 
@@ -389,7 +443,10 @@ Open `http://127.0.0.1:5173`. For the production build:
 npm start
 ```
 
-Open `http://127.0.0.1:8787`. Keep the PowerShell window open; `Ctrl+C` stops Nocturne.
+Open `http://127.0.0.1:8787`. This also starts the local control page at
+`http://127.0.0.1:8788`, reachable from **Settings → Local server**. Keep the PowerShell window
+open; `Ctrl+C` stops Nocturne. (`npm run dev` starts the browser app and API only, without the
+installed server controls.)
 
 Source mode stores its sign-in in the project's `data\config.json`, separate from the installed
 app. The mock Plex server in `tools\mock-plex` is for development only. Never point a real Plex
@@ -399,14 +456,17 @@ token at it.
 
 ## Privacy and safety
 
-- Nocturne's backend listens only on `127.0.0.1`. It is not exposed to the internet.
+- Nocturne's backend accepts this PC and, only when you enable LAN mode, private addresses on your
+  own network. It is not exposed to the internet, and public addresses are rejected.
 - The installed app stores the Plex token in
   `%LOCALAPPDATA%\Nocturne\data\config.json`; source mode uses `data\config.json`.
+- The server control page listens only on `127.0.0.1`, one port above Nocturne, and is never
+  available from your Wi-Fi.
 - `.env`, `data\`, `node_modules\`, `dist\`, and temporary tooling are excluded from Git.
 - Nocturne has no analytics, ads, accounts, or cloud service. Plex requests go directly from your
   PC to the Plex server you signed in to.
-- Do not change `HOST` to `0.0.0.0` or forward Nocturne's local port on your router without
-  adding real authentication. Nocturne has no multi-user login of its own.
+- LAN mode has no per-user login: anyone on your Wi-Fi who knows the address can use Nocturne
+  while it is on. Keep it off on untrusted networks and never forward the port on your router.
 
 ---
 

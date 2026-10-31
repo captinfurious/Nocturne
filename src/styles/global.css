@@ -601,6 +601,16 @@ code {
   color: var(--green);
 }
 
+.alert--info {
+  border-color: rgba(154, 123, 255, 0.22);
+  background: rgba(154, 123, 255, 0.06);
+}
+
+.alert--info > svg,
+.alert--info strong {
+  color: var(--violet-hi);
+}
+
 .alert--compact {
   padding: 10px 12px;
 }

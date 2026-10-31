@@ -15,6 +15,7 @@ const BROWSER_VIDEO = new Set(['h264', 'avc', 'avc1', 'vp8', 'vp9', 'av1'])
 const BROWSER_AUDIO = new Set(['aac', 'mp3', 'opus', 'vorbis'])
 const TEXT_SUBTITLE_CODECS = new Set([
   'srt', 'subrip', 'vtt', 'webvtt', 'txt', 'text', 'mov_text', 'timedtext', 'eia_608', 'cea608',
+  'ass', 'ssa', 'sami', 'smi', 'ttml', 'dfxp', 'microdvd', 'subviewer', 'jacosub',
 ])
 
 function now() {
@@ -340,7 +341,9 @@ function transcodeStartPath(session) {
     protocol: 'hls',
     fastSeek: '1',
     directPlay: '0',
-    directStream: session.remuxVideo ? '1' : '0',
+    // Burn-in changes the picture itself. Allowing Plex to remux/direct-stream
+    // the video can leave the subtitles out even though they were requested.
+    directStream: session.burnSubtitles ? '0' : (session.remuxVideo ? '1' : '0'),
     subtitleSize: '100',
     audioBoost: '100',
     location: 'lan',
@@ -395,7 +398,12 @@ function publicSession(session) {
 
 export async function startPlayback(
   ratingKey,
-  { offsetMs = 0, audioStreamId = null, subtitleStreamId = null } = {},
+  {
+    offsetMs = 0,
+    audioStreamId = null,
+    subtitleStreamId = null,
+    burnSubtitles: forceBurnSubtitles = false,
+  } = {},
 ) {
   requireCredentials()
 
@@ -429,7 +437,11 @@ export async function startPlayback(
   const selectedSubtitle = streams.subtitles.find(
     (track) => track.id === requestedSubtitleId,
   ) || null
-  const burnSubtitles = Boolean(selectedSubtitle?.isImage)
+  // Image formats always have to be burned. Text formats are shown by the
+  // browser when Plex can convert them, and the player asks for burn-in only
+  // when that conversion fails (or when it must survive a previous burn-in).
+  const burnSubtitles = Boolean(selectedSubtitle)
+    && (selectedSubtitle.isImage || Boolean(forceBurnSubtitles))
   const audioChanged = Boolean(
     requestedAudioId && defaultAudio && requestedAudioId !== defaultAudio.id,
   )
@@ -451,7 +463,7 @@ export async function startPlayback(
     reasons.push(`${containerOf(media, part) || 'this file'} needs conversion for the browser`)
   }
   if (audioChanged) reasons.push('the chosen audio track needs Plex to remux the file')
-  if (burnSubtitles) reasons.push(`${selectedSubtitle.codec || 'these'} subtitles need burning in`)
+  if (burnSubtitles) reasons.push(`${selectedSubtitle.codec || 'these'} subtitles are burned into the picture`)
 
   const session = {
     id: crypto.randomUUID(),
@@ -675,7 +687,16 @@ export async function streamSubtitle(req, res, id, streamId) {
     )
   }
 
-  const vtt = await fetchSubtitleVtt(track.id)
+  let vtt
+  try {
+    vtt = await fetchSubtitleVtt(track.id)
+  } catch (error) {
+    console.warn(
+      `[Nocturne] Could not load subtitle ${track.id} (${track.codec || 'unknown'}).`,
+      error.message,
+    )
+    throw error
+  }
   const body = session.mode === 'hls' ? shiftWebVtt(vtt, session.offsetMs) : vtt
   res.setHeader('Content-Type', 'text/vtt; charset=utf-8')
   res.setHeader('Cache-Control', 'private, max-age=3600')
@@ -731,29 +752,49 @@ function formatVttTime(ms) {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(millis).padStart(3, '0')}`
 }
 
+function parseVttTimestamp(value) {
+  const match = String(value).trim().match(/^(?:(\d{1,3}):)?(\d{1,2}):(\d{2})[.,](\d{3})$/)
+  if (!match) return null
+  const hours = Number(match[1] || 0)
+  const minutes = Number(match[2])
+  const seconds = Number(match[3])
+  const millis = Number(match[4])
+  return ((hours * 60 + minutes) * 60 + seconds) * 1000 + millis
+}
+
 function shiftWebVtt(text, offsetMs) {
   const offset = Math.max(0, Math.round(Number(offsetMs) || 0))
-  if (!offset) return text
+  const normalized = String(text)
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n?/g, '\n')
 
-  const toMs = (hours, minutes, seconds, millis) => (
-    ((Number(hours) * 60 + Number(minutes)) * 60 + Number(seconds)) * 1000 + Number(millis)
-  )
+  if (!offset) return normalized.endsWith('\n') ? normalized : `${normalized}\n`
 
-  return text
+  return normalized
     .replace(/^X-TIMESTAMP-MAP=.*$/gm, '')
-    .split(/\n\n+/)
+    .split(/\n{2,}/)
     .map((block) => {
-      if (block.trimStart().startsWith('WEBVTT')) return block.trimEnd()
+      const trimmed = block.trimStart()
+      if (trimmed.startsWith('WEBVTT')) return block.trimEnd()
+      if (/^(NOTE|STYLE|REGION)\b/.test(trimmed)) return block
+
+      // WebVTT permits both HH:MM:SS.mmm and MM:SS.mmm timestamps. Plex uses
+      // both depending on the source file, so parse either instead of silently
+      // leaving cues on the original (unshifted) timeline.
       const match = block.match(
-        /^(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s+-->\s+(\d{2}):(\d{2}):(\d{2})\.(\d{3})(.*)$/m,
+        /^((?:\d{1,3}:)?\d{1,2}:\d{2}[.,]\d{3})\s+-->\s+((?:\d{1,3}:)?\d{1,2}:\d{2}[.,]\d{3})([^\n]*)$/m,
       )
       if (!match) return block
 
-      const start = toMs(match[1], match[2], match[3], match[4]) - offset
-      const end = toMs(match[5], match[6], match[7], match[8]) - offset
-      if (end <= 0) return null
+      const start = parseVttTimestamp(match[1])
+      const end = parseVttTimestamp(match[2])
+      if (start === null || end === null) return block
 
-      const timing = `${formatVttTime(Math.max(0, start))} --> ${formatVttTime(end)}${match[9]}`
+      const shiftedStart = start - offset
+      const shiftedEnd = end - offset
+      if (shiftedEnd <= 0) return null
+
+      const timing = `${formatVttTime(Math.max(0, shiftedStart))} --> ${formatVttTime(shiftedEnd)}${match[3] || ''}`
       return block.replace(match[0], timing)
     })
     .filter(Boolean)
