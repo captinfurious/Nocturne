@@ -6,7 +6,10 @@ distinct interface: a cinematic hero, a black-and-red top-navigation layout, hor
 rows, a ranked Top 10, My List, real resume progress, search, library browsing, title and season
 details, and an in-app player that streams straight from Plex.
 
-**Current version:** 1.1.0 — desktop and responsive web with the streaming redesign, My List, in-app playback with audio/subtitle tracks, Skip Intro, next-episode autoplay, and continuous Home catalogs, focused on Windows + Plex.
+**Current version:** 1.2.0 — desktop and responsive web with the streaming redesign, My List,
+in-app playback with audio/subtitle tracks, Skip Intro, next-episode autoplay, continuous Home
+catalogs, and a per-user, self-contained Windows app installer with a standalone launcher,
+optional login startup, and a private Node runtime when one is needed.
 
 **New to Nocturne?** Follow the step-by-step **[download and Windows installation guide](TUTORIAL.md)**.
 
@@ -43,6 +46,8 @@ details, and an in-app player that streams straight from Plex.
 - Plex token and all Plex API requests stay on the local backend. The browser never receives the token.
 - Loading skeletons, empty states, connection errors, retry actions, and a Plex-offline banner.
 - Responsive layout for desktop, tablet, and mobile, with a TV-oriented larger layout at wide viewports.
+- Windows app installer with a standalone `Nocturne.exe` launcher, Start Menu/desktop shortcuts,
+  an uninstaller, and optional per-user login startup.
 
 The app never renames, moves, deletes, or modifies your media files. It only reads library metadata
 and artwork from Plex.
@@ -51,19 +56,87 @@ and artwork from Plex.
 
 ## The short Windows version
 
-1. Install **Node.js 24 LTS**.
-2. Put this project folder somewhere convenient, for example
-   `C:\Users\<YourName>\Projects\Nocturne`.
-3. Open **PowerShell** in that folder.
-4. Run `npm install`.
-5. Make sure Plex Media Server is running.
-6. Run `npm run dev`.
-7. Open **http://127.0.0.1:5173** in Edge.
-8. Complete the Plex sign-in screen.
+1. Download the project and extract it to a real folder.
+2. Make sure **Plex Media Server** is running.
+3. Double-click **`Start Nocturne.cmd`**.
+4. Let the installer build Nocturne and create the app shortcuts.
+5. Choose whether Nocturne should start with Windows.
+6. Sign in to Plex when Nocturne opens.
 
-For daily use after the first setup, run `npm start` instead and open **http://127.0.0.1:8787**.
+No terminal, no `npm start`, no Node.js setup, and no browser address to remember. The first run
+installs the app; the same file opens it and applies updates afterwards.
 
 ---
+
+## Install as a Windows app
+
+This is the normal installation path. It creates a real `Nocturne.exe` launcher that starts the
+local server in the background and opens Nocturne in a standalone Edge app window.
+
+**Before you start:** Windows 10 or 11, Plex Media Server running, and an internet connection for
+the first install. You do not need to install Node.js. If Node 22.12 or newer is already present,
+the installer uses it; otherwise it downloads a private, checksum-verified Node runtime and bundles
+it inside Nocturne.
+
+1. Extract the whole project to a normal folder, for example
+   `C:\Users\<YourName>\Projects\Nocturne`.
+2. Double-click **`Start Nocturne.cmd`** at the top of the folder.
+3. If you prefer, `windows\Install Nocturne.cmd` runs the installer directly for updates or
+   changing startup settings.
+4. If Windows SmartScreen says **Windows protected your PC**, click **More info → Run anyway**.
+   The launcher and installer are local scripts built on your PC, not signed commercial binaries,
+   so SmartScreen does not recognise them yet.
+5. Answer the startup question. The default is **Yes**, which starts the Nocturne server about
+   15 seconds after you sign in to Windows. It stays in the background and does not open a window.
+6. Wait for **Nocturne is installed**, then sign in to Plex on the screen that opens.
+
+The installer does not need Administrator rights and does not install a Windows service. Nocturne
+writes only to your own Windows profile. The private Node runtime is kept inside the app folder;
+`winget` is only a fallback if the direct Node download fails.
+
+| What | Where |
+| --- | --- |
+| App, local server, bundled Node runtime | `%LOCALAPPDATA%\Programs\Nocturne` |
+| Plex token and settings | `%LOCALAPPDATA%\Nocturne\data` |
+| App launch log | `%LOCALAPPDATA%\Programs\Nocturne\logs\launcher.log` |
+| Server log | `%LOCALAPPDATA%\Programs\Nocturne\logs\server.log` |
+| Shortcuts | Desktop and Start Menu → Nocturne |
+| Optional startup entry | Your Startup folder (`Nocturne.lnk`) |
+| Local app address | `127.0.0.1` on a private per-account port |
+
+Nocturne itself does not modify Plex, your media, Windows services, firewall rules, hosts file, or
+system-wide settings. The app listens on `127.0.0.1` only. Each Windows account gets its own private local
+port (usually in the 8800–9299 range), so accounts on a shared PC normally get separate local
+servers instead of sharing port 8787. Source mode still uses port 8787.
+
+**Sharing it with someone else:** send them the project folder or publish the repository. Each
+person installs it under their own Windows account and signs in with their own Plex account. Plex
+decides which shared libraries that account can see. Never copy a `data\config.json` or Plex token
+to another person; a token is equivalent to access to that Plex account.
+
+**Daily use:** open **Nocturne** from the Start Menu. Closing the Nocturne window stops playback
+but leaves the local server ready for a fast reopen. To stop the server completely, use Start
+Menu → Nocturne → **Stop Nocturne**, or sign out of Windows.
+
+**Turn startup off:** run `windows\Install Nocturne.cmd` and answer **No** to the startup question.
+The installer also updates the app, keeps your Plex sign-in, and replaces the old shortcuts. Running
+`Start Nocturne.cmd` when the version is unchanged simply opens the app.
+
+**Uninstall:** Start Menu → Nocturne → **Uninstall Nocturne**. If that entry is missing, run
+`windows\Uninstall Nocturne.cmd` from the project. It removes the app and shortcuts. It asks
+separately before deleting your saved Plex sign-in, and never touches your media or Plex
+installation. Updates and reinstalls keep the saved sign-in.
+
+> Nocturne is not code-signed. SmartScreen warnings and antivirus heuristics are possible for
+> unsigned local apps. If you do not trust the source, read `windows\Install-Nocturne.ps1` and
+> `windows\NocturneLauncher.cs` before running them; they are plain text.
+
+---
+
+## Manual setup (development or troubleshooting)
+
+The numbered sections below are the optional manual route. Use them if you are changing Nocturne,
+the installer failed, or you want to run it in a browser instead of the installed app.
 
 ## 1. Check Node.js
 
@@ -179,6 +252,13 @@ locally so you do not need to handle it again.
 
 ## 7. Daily use after restarting your PC
 
+**If you installed the Windows app:** start **Plex Media Server**, then open **Nocturne** from the
+Start Menu. If you chose startup during installation, the Nocturne server is already running in
+the background after you sign in, so opening the shortcut is enough. Closing the Nocturne window
+does not remove your Plex connection.
+
+**If you are running from source:**
+
 1. Start **Plex Media Server**.
 2. Open PowerShell.
 3. Go to the Nocturne folder:
@@ -201,8 +281,9 @@ build takes a few seconds. Keep the PowerShell window open; `Ctrl+C` stops Noctu
 If you are actively editing code, use `npm run dev` instead and open `http://127.0.0.1:5173`.
 Vite reloads the interface as you save files.
 
-There is no separate database or cloud service to start. The Plex connection is remembered in
-`data/config.json`.
+There is no separate database or cloud service to start. In source mode the Plex connection is
+remembered in `data/config.json`; the installed app uses
+`%LOCALAPPDATA%\Nocturne\data\config.json`.
 
 ---
 
@@ -256,7 +337,8 @@ stream them.
 
 ## Security and privacy
 
-- The Plex token is stored in `data/config.json` on the local machine, with restrictive file
+- The Plex token is stored in `data/config.json` when running from source, or
+  `%LOCALAPPDATA%\Nocturne\data\config.json` in the installed app, with restrictive file
   permissions where the operating system supports them.
 - The browser calls Nocturne's local API; the API adds the Plex token to Plex requests.
 - Artwork is proxied through Nocturne as well, because Plex image URLs also require the token.
@@ -265,9 +347,9 @@ stream them.
   cross-origin requests.
 - `.env`, `data/`, `dist/`, `node_modules/`, and `.tools/` are git-ignored.
 
-**Do not change `HOST` to `0.0.0.0` and expose port 8787 to the internet.** Nocturne currently trusts
-requests from your local machine and has no account system of its own. A future remote/TV version
-needs real authentication in front of the API.
+**Do not change `HOST` to `0.0.0.0` and expose Nocturne's local port to the internet.** Nocturne
+currently trusts requests from your local machine and has no account system of its own. A future
+remote/TV version needs real authentication in front of the API.
 
 ---
 
@@ -292,9 +374,12 @@ Nocturne/
 │  ├─ styles/         Design tokens, shell, components, page styles
 │  ├─ api.js          Browser API client (no token handling)
 │  └─ App.jsx         Route and health bootstrapping
+├─ windows/           Windows installer, Nocturne.exe launcher, app icon, uninstaller
+├─ Start Nocturne.cmd One-click first-run, update, and launch wrapper
+├─ START HERE.txt     Plain-language quick start for recipients
 ├─ tools/mock-plex/   Development-only Plex + plex.tv simulator (never used in normal runs)
 ├─ public/            Favicon
-├─ data/              Created at runtime; local Plex token/config (ignored by git)
+├─ data/              Created at runtime by source mode; local Plex token/config (git-ignored)
 ├─ .env.example       Optional advanced configuration
 ├─ TUTORIAL.md        Beginner download and installation guide
 ├─ vite.config.js

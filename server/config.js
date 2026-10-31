@@ -167,3 +167,33 @@ export function getPaths() {
     distDir: DIST_DIR,
   }
 }
+
+/**
+ * Details written by windows/Install-Nocturne.ps1. Only used to show accurate
+ * app information in Settings; the app works identically when it is absent.
+ */
+export function getInstallInfo() {
+  if (!process.env.LOCALAPPDATA) return null
+
+  const manifestPath = path.join(
+    process.env.LOCALAPPDATA,
+    'Programs',
+    'Nocturne',
+    'install.json',
+  )
+
+  try {
+    const raw = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    return {
+      installed: true,
+      version: typeof raw.version === 'string' ? raw.version : null,
+      installDir: typeof raw.installDir === 'string' ? raw.installDir : null,
+      dataDir: typeof raw.dataDir === 'string' ? raw.dataDir : null,
+      port: Number.isInteger(raw.port) && raw.port > 0 && raw.port < 65536 ? raw.port : null,
+      runAtLogin: Boolean(raw.runAtLogin),
+      installedAt: typeof raw.installedAt === 'string' ? raw.installedAt : null,
+    }
+  } catch {
+    return null
+  }
+}

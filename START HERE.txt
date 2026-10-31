@@ -1,0 +1,27 @@
+NOCTURNE
+========
+
+1. Extract this whole folder somewhere real. Do not run it from inside the ZIP.
+2. Start Plex Media Server.
+3. Double-click "Start Nocturne.cmd".
+4. If Windows SmartScreen appears, click "More info", then "Run anyway".
+5. Answer the startup question (Enter means yes).
+6. Sign in to Plex when Nocturne opens.
+
+That is the whole setup. You do not need to install Node.js or use PowerShell
+yourself. If Node.js is missing, the installer downloads a private, checksum-
+verified copy for Nocturne and keeps it inside the app folder.
+
+After setup, open Nocturne from the Start Menu or desktop. The same
+"Start Nocturne.cmd" also opens the installed app, and it will update Nocturne
+when this folder contains a newer version.
+
+Useful places:
+- Full instructions: TUTORIAL.md
+- Uninstall: Start Menu > Nocturne > Uninstall Nocturne
+- Stop the background server: Start Menu > Nocturne > Stop Nocturne
+- App data and Plex sign-in: %LOCALAPPDATA%\Nocturne\data
+
+Nocturne is an interface for your existing Plex library. It does not move,
+rename, delete, or modify your media. Each Windows account installs its own
+copy and signs in with its own Plex account.

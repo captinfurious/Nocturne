@@ -3,6 +3,7 @@ import {
   Check,
   CircleAlert,
   ExternalLink,
+  Laptop,
   LoaderCircle,
   MonitorPlay,
   RefreshCw,
@@ -67,6 +68,9 @@ export function SettingsPage() {
   const online = health?.reachable
   const serverName = health?.server?.name || 'Plex Media Server'
   const accountName = health?.account?.username || health?.account?.title
+  const tokenPath = health?.install
+    ? '%LOCALAPPDATA%\\Nocturne\\data\\config.json'
+    : 'data/config.json'
 
   return (
     <div className="page page--settings">
@@ -186,7 +190,7 @@ export function SettingsPage() {
           <ul className="settings-list">
             <li>Resume points are read from Plex when playback starts.</li>
             <li>Progress and finished titles are written back to Plex history.</li>
-            <li>Subtitles follow your Plex defaults. External subtitle tracks are not selectable yet.</li>
+            <li>Audio and subtitle tracks are selectable in the player, with Skip Intro and next-episode autoplay.</li>
           </ul>
           <a
             className="small-link"
@@ -208,10 +212,10 @@ export function SettingsPage() {
             </div>
           </div>
           <p className="settings-card__copy">
-            Nocturne runs two local processes: the React interface and a small API on
-            <code>127.0.0.1</code>. The API holds your Plex token in
-            <code>data/config.json</code> and proxies artwork and metadata. Your token
-            is never sent to the browser.
+            Nocturne serves the interface and a small API from one local process on{' '}
+            <code>127.0.0.1</code>. The API holds your Plex token in{' '}
+            <code>{tokenPath}</code> and proxies artwork and metadata. Your token is
+            never sent to the browser.
           </p>
           <p className="settings-card__footnote">
             Keep Nocturne’s backend bound to <code>127.0.0.1</code>. Do not expose it to
@@ -221,21 +225,65 @@ export function SettingsPage() {
 
         <section className="settings-card">
           <div className="settings-card__heading">
-            <span className="settings-icon"><Server size={19} /></span>
+            <span className="settings-icon"><Laptop size={19} /></span>
             <div>
-              <p className="eyebrow">After a restart</p>
-              <h2>Bring the cinema back</h2>
+              <p className="eyebrow">Desktop app</p>
+              <h2>Install it once</h2>
             </div>
           </div>
-          <ol className="settings-steps">
-            <li>Start Plex Media Server.</li>
-            <li>Open PowerShell in the Nocturne folder.</li>
-            <li>Run <code>npm start</code>.</li>
-            <li>Open <code>http://127.0.0.1:8787</code>.</li>
-          </ol>
-          <p className="settings-card__footnote">
-            The full Windows walkthrough is in <code>README.md</code>.
-          </p>
+          {health?.install ? (
+            <>
+              <p className="settings-card__copy">
+                Nocturne is installed as a Windows app for this account. Open it from
+                the Start Menu whenever you want to watch; it starts its own local
+                server and opens a standalone window. Use <strong>Nocturne → Stop
+                Nocturne</strong> in the Start Menu to stop the background server.
+              </p>
+              <dl className="settings-details">
+                <div>
+                  <dt>Version</dt>
+                  <dd>{health.install.version || 'Unknown'}</dd>
+                </div>
+                <div>
+                  <dt>Starts with Windows</dt>
+                  <dd>{health.install.runAtLogin ? 'Yes' : 'No'}</dd>
+                </div>
+                <div>
+                  <dt>Local port</dt>
+                  <dd>{health.install.port || 'Default'}</dd>
+                </div>
+                <div>
+                  <dt>App data</dt>
+                  <dd className="mono">{health.install.dataDir || 'Not available'}</dd>
+                </div>
+              </dl>
+              <p className="settings-card__footnote">
+                To update, run the installer again. Remove Nocturne with
+                {' '}<strong>Uninstall Nocturne</strong> in the Start Menu. Your Plex
+                token in {health.install.dataDir || 'your app data folder'} is kept until
+                you choose to delete app data during uninstall.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="settings-card__copy">
+                The Windows installer creates <code>Nocturne.exe</code>, Start Menu and
+                desktop shortcuts, and an optional login startup entry. It installs for
+                your Windows account only. Plex sign-in data stays in{' '}
+                <code>%LOCALAPPDATA%\Nocturne\data</code> and survives updates.
+              </p>
+              <ol className="settings-steps">
+                <li>Open the Nocturne project folder.</li>
+                <li>Double-click <code>windows\Install Nocturne.cmd</code>.</li>
+                <li>Choose whether Nocturne starts with Windows.</li>
+                <li>Use the Nocturne shortcut from then on.</li>
+              </ol>
+              <p className="settings-card__footnote">
+                Remove it later with <strong>Uninstall Nocturne</strong> in the Start
+                Menu. The full walkthrough is in <code>TUTORIAL.md</code>.
+              </p>
+            </>
+          )}
         </section>
       </div>
 
@@ -285,7 +333,7 @@ export function SettingsPage() {
 
       <footer className="settings-footer">
         <span className="settings-footer__mark">✦</span>
-        <p>Nocturne 1.0 · A private cinema for the library you already own.</p>
+        <p>Nocturne {health?.install?.version || '1.2'} · A private cinema for the library you already own.</p>
         <span>Built for Plex</span>
       </footer>
     </div>

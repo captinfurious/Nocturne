@@ -1,31 +1,29 @@
-# Nocturne — download and installation guide
+# Nocturne — install and setup guide
 
-This guide takes you from the GitHub page to a working Nocturne interface connected to your
-own Plex library. It is written for **Windows 10 or 11** and assumes you have never run a
-Node.js project before.
+This guide takes you from the GitHub page to a working Nocturne app connected to your own Plex
+library. It is written for **Windows 10 or 11**.
 
-Nocturne is only an interface. It does not move, rename, delete, or copy your media. Your
-existing Plex Media Server keeps the files, metadata, playback engine, and watch history.
-
-The application and its GitHub repository are both called **Nocturne**.
+Nocturne is only an interface. It does not move, rename, delete, or copy your media. Your existing
+Plex Media Server keeps the files, metadata, playback engine, and watch history.
 
 **Repository:** <https://github.com/captinfurious/Nocturne>
 
-> The repository is private by default. Sign in to GitHub with the account that owns it
-> before downloading. If you want other people to download Nocturne, change the repository
-> visibility to public in **Settings → General → Danger Zone**.
+> The repository may be private. Sign in to GitHub with the account that owns it before
+> downloading. To let other people install Nocturne, make the repository public or share a ZIP
+> with them.
 
 ---
 
 ## What you need
 
-Before starting, confirm you have:
-
 - Windows 10 or 11.
 - A working **Plex Media Server** on the same PC or on your local network.
-- Microsoft Edge (Chrome and Firefox also work).
-- About 10 minutes for the first setup.
-- An internet connection for installing packages and signing in to Plex.
+- Microsoft Edge (the installer uses its app-window mode; Chrome or Firefox can be used for the
+  browser-only mode).
+- An internet connection for the first installation.
+- About 10 minutes.
+- No Node.js setup. If Node is missing, the installer downloads a private, checksum-verified
+  runtime and keeps it inside Nocturne.
 
 You do **not** need to install Plex again, change Plex settings, or move your media.
 
@@ -33,34 +31,30 @@ You do **not** need to install Plex again, change Plex settings, or move your me
 
 ## Step 1 — Download Nocturne
 
-You can download the project as a ZIP file or clone it with Git. Use the ZIP method if you
-are new to development.
+Use the ZIP method if you are new to development.
 
-### Option A — Download the ZIP (recommended for beginners)
+### Option A — Download the ZIP
 
-1. Open the repository page in Edge:
-   <https://github.com/captinfurious/Nocturne>
+1. Open <https://github.com/captinfurious/Nocturne> in Edge.
 2. Click the green **Code** button.
 3. Click **Download ZIP**.
 4. Open your **Downloads** folder.
 5. Right-click `Nocturne-main.zip` and choose **Extract All…**.
-6. Extract it somewhere easy to find. For example:
+6. Extract it somewhere easy to find, for example:
 
    ```text
    C:\Users\<YourName>\Projects\Nocturne
    ```
 
-> **Important:** Do not run Nocturne from inside the ZIP file. Windows lets you browse a ZIP
-> like a folder, but the project needs a real extracted folder.
+> **Important:** Do not run the installer from inside the ZIP. Windows lets you browse a ZIP like
+> a folder, but Nocturne needs a real extracted folder.
 
-If you extracted the ZIP with the default name, the inner folder will be called
-`Nocturne-main`. You can rename it to `Nocturne` so the examples below
-match exactly; either name works as long as you adjust the paths.
+If the inner folder is called `Nocturne-main`, you can rename it to `Nocturne`. Either name works.
 
 ### Option B — Clone with Git
 
-Install **Git for Windows** from <https://git-scm.com/download/win> if it is not already
-installed. Then open PowerShell and run:
+Install **Git for Windows** from <https://git-scm.com/download/win> if needed. Then open
+PowerShell and run:
 
 ```powershell
 cd "C:\Users\<YourName>\Projects"
@@ -68,201 +62,175 @@ git clone https://github.com/captinfurious/Nocturne.git
 cd Nocturne
 ```
 
-A private repository will ask you to sign in to GitHub. Use your normal GitHub account.
+A private repository asks you to sign in to GitHub. Use your normal GitHub account.
 
 ---
 
-## Step 2 — Install Node.js
+## Step 2 — Install the Windows app
 
-Nocturne needs **Node.js 22.12 or newer**. Node 24 LTS is recommended.
+1. Start **Plex Media Server**.
+2. Open the extracted Nocturne folder.
+3. Double-click **`Start Nocturne.cmd`** at the top of the folder.
 
-In PowerShell, check whether Node is already installed:
+A console window opens and walks through the install. The first build can take a minute or two.
+The same file opens the installed app afterwards, and it runs the installer again when the project
+contains a newer version. To change startup settings directly, use
+`windows\Install Nocturne.cmd`.
 
-```powershell
-node --version
-npm --version
-```
+### If Windows shows a SmartScreen warning
 
-If both commands print version numbers and Node is 22.12 or newer, skip to Step 3.
+Click **More info**, then **Run anyway**.
 
-If Windows says the command is not recognized, install Node with:
+Nocturne is not code-signed. The installer and `Nocturne.exe` are built locally from the plain-text
+scripts in `windows\`; they are not a commercial signed installer. Windows Defender or SmartScreen
+may warn about any unsigned app. Nocturne's own installer writes inside your user profile and does
+not request Administrator rights. It downloads Node into the app folder when needed; it does not
+install Node system-wide.
 
-```powershell
-winget install --id OpenJS.NodeJS.LTS -e --source winget
-```
+### If Node.js is missing
 
-Alternatively, download the **LTS installer** from <https://nodejs.org/> and run it with
-the default options.
+The installer offers to download the current Node.js LTS runtime (about 40 MB) into Nocturne's own
+folder. Answer **Y**. It verifies the download's published SHA-256 checksum before using it. You do
+not need to install Node yourself.
 
-**Close PowerShell and open it again** after installing. Then check again:
+If the download fails, the installer can fall back to `winget` or you can install Node from
+<https://nodejs.org/> and run `windows\Install Nocturne.cmd` again.
 
-```powershell
-node --version
-npm --version
-```
+### Choose startup
 
-You should see something like `v24.x.x` and `10.x.x`. Exact numbers may be newer.
-
----
-
-## Step 3 — Open the project folder in PowerShell
-
-In PowerShell, use `cd` followed by the real path of the folder that contains
-`package.json`.
-
-```powershell
-cd "C:\Users\<YourName>\Projects\Nocturne"
-```
-
-Replace `<YourName>` with your Windows user name and adjust the path if you extracted the
-ZIP somewhere else. Then confirm you are in the right folder:
-
-```powershell
-Get-ChildItem
-```
-
-You should see files and folders such as:
+The installer asks:
 
 ```text
-package.json
-server
-src
-tools
-README.md
-TUTORIAL.md
+Start Nocturne server automatically when you sign in to Windows? [Y/n]
 ```
 
-If you do not see `package.json`, you are in the wrong folder. Use `cd` again with the
-folder you created when extracting the ZIP.
+Press **Enter** for Yes. The default adds one shortcut to your personal Startup folder. It starts
+the local Nocturne server about **15 seconds after you sign in**, hidden in the background, so
+Plex has time to start too. It does not open a browser window at login.
+
+Answer **n** if you prefer to start Nocturne only when you open it.
+
+### What the installer creates
+
+Nocturne installs per Windows account:
+
+| What | Where |
+| --- | --- |
+| App, launcher, local server, Node runtime | `%LOCALAPPDATA%\Programs\Nocturne` |
+| Plex token and app settings | `%LOCALAPPDATA%\Nocturne\data` |
+| Launcher log | `%LOCALAPPDATA%\Programs\Nocturne\logs\launcher.log` |
+| Server log | `%LOCALAPPDATA%\Programs\Nocturne\logs\server.log` |
+| Desktop shortcut | `Nocturne.lnk` |
+| Start Menu | `Nocturne` folder with the app, **Stop**, and **Uninstall** |
+| Optional startup entry | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Nocturne.lnk` |
+
+The installed app picks a private loopback port for your Windows account (usually 8800–9299), so
+separate Windows accounts normally get separate local servers instead of both using port 8787.
+Source mode still uses port 8787.
+
+Nocturne does **not** install a Windows service, change Plex, alter media files, add firewall rules,
+change the hosts file, or write to `Program Files`. The Node runtime is a private file inside
+Nocturne's app folder, not a system-wide Node installation.
+
+At the end, Nocturne opens in a standalone Edge app window. The downloaded project folder is no
+longer needed to run the app, but keep it if you want to update Nocturne later. Because the Node
+runtime is bundled, you can remove or update a separately installed Node.js without breaking
+Nocturne.
 
 ---
 
-## Step 4 — Install Nocturne's dependencies
+## Step 3 — Connect your Plex account
 
-With PowerShell still in the project folder, run:
-
-```powershell
-npm install
-```
-
-This downloads the packages Nocturne needs into a local `node_modules` folder. It usually takes
-30 seconds to a few minutes. You only need to do this after the first download or after the
-project's dependencies change.
-
-If PowerShell blocks `npm` with a message about `npm.ps1`, either use the Windows wrapper:
-
-```powershell
-npm.cmd install
-```
-
-or allow locally created scripts for your own Windows account:
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-```
-
-Then confirm the prompt and try `npm install` again. Do not disable Windows security
-features globally just to run Nocturne.
-
----
-
-## Step 5 — Make sure Plex is running
-
-Start **Plex Media Server** and open this address in Edge:
-
-```text
-http://127.0.0.1:32400/web
-```
-
-You should see your Plex library. If that address does not work, fix Plex first; Nocturne cannot
-work without it.
-
-If Plex runs on another computer on your network, keep that computer awake and note its
-address, for example:
-
-```text
-http://192.168.1.50:32400
-```
-
-Nocturne's setup screen can use a manual server address if automatic discovery cannot find it.
-
----
-
-## Step 6 — Start Nocturne for the first time
-
-In the same PowerShell window, run:
-
-```powershell
-npm run dev
-```
-
-This starts two local processes:
-
-- the Nocturne API on `http://127.0.0.1:8787`
-- the Nocturne interface on `http://127.0.0.1:5173`
-
-Keep the PowerShell window open. Now open Edge and go to:
-
-```text
-http://127.0.0.1:5173
-```
-
-You will see the Nocturne setup screen.
-
-### Connect your Plex account
+The first launch shows Nocturne's setup screen.
 
 1. Click **Sign in to Plex**.
-2. A Plex login page opens in a new tab.
+2. A Plex login page opens.
 3. Sign in with your normal Plex account.
-4. If Plex asks for the one-time code, copy it from the Nocturne setup screen.
-5. Return to the Nocturne tab. Nocturne detects the sign-in and finds your server automatically.
-6. Your home page appears with content from your real Plex library.
+4. If Plex asks for a one-time code, copy it from the Nocturne setup screen.
+5. Return to Nocturne. It detects the sign-in and finds your server automatically.
+6. Your home page appears with real content from your Plex library.
 
-Nocturne stores the Plex token **only on this PC** in `data/config.json`. The browser never
-receives the token, and your Plex password is never seen by Nocturne.
+Nocturne stores the Plex token **only on this PC**, in
+`%LOCALAPPDATA%\Nocturne\data\config.json`. The browser never receives the token. Nocturne never
+sees your Plex password.
 
 ### If Nocturne cannot find your server
 
 On the setup screen, click **Use a Plex token instead** or **Connect with a token and server
-address**. You will need:
+address**. You need:
 
 - a Plex token, and
 - your server address, such as `http://127.0.0.1:32400`.
 
-Plex's official token instructions are here:
+Plex's official token instructions:
 <https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/>
 
 Do not post your token in a GitHub issue, screenshot, chat, or public file. Treat it like a
 password.
 
+### Installing for another person
+
+Nocturne is per Windows account, not per PC. Each person who wants to use it should:
+
+1. Have access to a Plex server (their own, or a library shared with their Plex account).
+2. Download or receive the Nocturne project folder.
+3. Run `Start Nocturne.cmd` while signed in to their own Windows account.
+4. Sign in with their own Plex account.
+
+Never copy someone else's `data\config.json` or Plex token. Giving someone a Plex token gives them
+access to that Plex account and its libraries.
+
+Nocturne has no user accounts of its own. Plex controls which libraries each Plex account can see.
+If someone cannot see a library in Plex Web, Nocturne cannot show it to them either.
+
 ---
 
-## Step 7 — Start Nocturne after restarting your PC
-
-For everyday use, you do not need the development server. From the project folder, run:
-
-```powershell
-npm start
-```
-
-Nocturne builds the interface and serves the whole app at:
-
-```text
-http://127.0.0.1:8787
-```
-
-Open that address in Edge. The first build takes a few seconds. Keep PowerShell open while
-you use Nocturne.
-
-Suggested daily routine:
+## Step 4 — Daily use
 
 1. Start **Plex Media Server**.
-2. Open PowerShell.
-3. Run `cd "C:\Users\<YourName>\Projects\Nocturne"`.
-4. Run `npm start`.
-5. Open `http://127.0.0.1:8787`.
+2. Open **Nocturne** from the Start Menu or desktop.
 
-Press `Ctrl+C` in PowerShell to stop Nocturne. Closing the window also stops it.
+If you enabled startup, the server is already running in the background after you sign in.
+Opening the shortcut just reopens the app window.
+
+**Closing the Nocturne window stops playback but leaves the server running** so the next launch is
+fast. To stop it completely, open Start Menu → **Nocturne** → **Stop Nocturne**. Signing out or
+restarting Windows also stops it.
+
+### Turn startup on or off
+
+Run `windows\Install Nocturne.cmd` again:
+
+- Answer **Y** to enable startup.
+- Answer **n** to disable it.
+
+The installer updates the app, keeps your Plex sign-in, and refreshes the shortcuts. You can also
+remove only the startup entry:
+
+```powershell
+Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\Nocturne.lnk" -ErrorAction SilentlyContinue
+```
+
+### Update Nocturne
+
+1. Download the newest project version (ZIP or `git pull`).
+2. Close the Nocturne app window.
+3. Run `Start Nocturne.cmd` from the new folder. It detects the version change and runs the
+   installer; if the version is unchanged, it simply opens the app.
+4. Answer the startup question again, or run `windows\Install Nocturne.cmd` directly if you want
+   to change startup settings.
+
+The installer stops the old background server, rebuilds Nocturne, and replaces the app files.
+Your Plex sign-in in `%LOCALAPPDATA%\Nocturne\data` is kept.
+
+### Uninstall Nocturne
+
+Start Menu → **Nocturne** → **Uninstall Nocturne**. If that entry is missing, run
+`windows\Uninstall Nocturne.cmd` from the downloaded project.
+
+It removes the app and shortcuts. It asks separately before deleting your saved Plex sign-in, and
+it never touches Plex, your account, or your media. A reinstall keeps the sign-in unless you chose
+to delete it.
 
 ---
 
@@ -309,36 +277,32 @@ library settings.
 
 ---
 
-## Updating Nocturne later
+## Troubleshooting
 
-### If you downloaded the ZIP
+### Nothing opens when I double-click the Nocturne shortcut
 
-1. Download a new ZIP from the repository's **Code** menu.
-2. Extract it to a new folder.
-3. Keep your old `data` folder if you want to preserve the saved Plex login.
-4. Run `npm install` in the new folder, then `npm start`.
+The launcher waits up to 30 seconds for the local server, then shows an error with a log path.
+Open:
 
-### If you cloned with Git
-
-From the project folder:
-
-```powershell
-git pull
-npm install
-npm start
+```text
+%LOCALAPPDATA%\Programs\Nocturne\logs\launcher.log
+%LOCALAPPDATA%\Programs\Nocturne\logs\server.log
 ```
 
-`npm install` is only strictly necessary when the dependency list changes, but running it
-after an update is harmless.
+Common causes:
 
----
-
-## Troubleshooting
+- **The bundled Node runtime is missing or blocked.** Run the installer again. If antivirus keeps
+  blocking it, install Node 22.12 or newer manually and rerun the installer so it can bundle that
+  copy instead.
+- **The app's local port is already used by another program.** Run the installer again; it picks a
+  different private port. Source mode uses 8787.
+- **Antivirus blocked the launcher.** Allow `Nocturne.exe` for your own user account, or inspect
+  the scripts and run from source instead.
 
 ### "Nocturne can't reach its own engine"
 
-The local API is not running. Make sure the PowerShell window is still open and start Nocturne
-again with `npm run dev` or `npm start`.
+The local API did not start. Open Start Menu → **Nocturne** → **Stop Nocturne**, then open the app
+again. If it keeps failing, read the server log above.
 
 ### "Nocturne is not connected to Plex yet"
 
@@ -355,21 +319,22 @@ Complete the setup screen. If Plex was working before, open **Settings** and cli
 ### Plex sign-in finds my account but not my server
 
 Make sure Plex is running on this PC and reachable at `http://127.0.0.1:32400`. Then use the
-manual token/server-address option. If Plex is on another PC, use that PC's LAN address and
-make sure Windows Firewall allows Plex on the local network.
+manual token/server-address option. If Plex is on another PC, use that PC's LAN address and make
+sure Windows Firewall allows Plex on the local network.
 
 ### "Port already in use" / EADDRINUSE
 
-Another copy of Nocturne may still be running. Close the old PowerShell window or stop the old
-process. To see what is using the ports:
+The installed app uses a private per-account port near 8800, so this is mostly a source-mode
+problem. Another copy of Nocturne may still be running. Use Start Menu → **Nocturne** →
+**Stop Nocturne**, then reopen the app. To see what is using the source-mode ports:
 
 ```powershell
 Get-NetTCPConnection -LocalPort 8787,5173 -ErrorAction SilentlyContinue |
   Select-Object LocalAddress,LocalPort,OwningProcess
 ```
 
-If you intentionally use a different port, set `PORT=8788` in a local `.env` file. The Vite
-proxy reads the same setting. Restart Nocturne after changing it.
+If you intentionally use a different port in source mode, set `PORT=8788` in a local `.env` file.
+The Vite proxy reads the same setting. The installed app chooses its own port.
 
 ### Playback will not start or keeps buffering
 
@@ -397,26 +362,51 @@ local backend because Plex image paths also require authentication.
 Open **Settings → Disconnect Plex**. This removes the saved token and server details from
 Nocturne. It does not change Plex, your account, or any media file.
 
-To completely remove Nocturne, stop it, delete the project folder, and optionally delete its
-`data` folder. Nothing is installed as a Windows service.
+To remove the app completely, use **Uninstall Nocturne** in the Start Menu.
 
 ### The interface says "previous Plex connection expired"
 
-Plex rejected the saved token. Sign in again on the setup screen. This does not mean your
-media is damaged. It usually means the token was revoked or the Plex account password changed.
+Plex rejected the saved token. Sign in again on the setup screen. This does not mean your media is
+damaged. It usually means the token was revoked or the Plex account password changed.
+
+---
+
+## Advanced: run from source
+
+Use this only if you are changing Nocturne or the installer does not work. Source mode still
+requires Node.js 22.12 or newer and `npm`. The normal app install above is the recommended path.
+
+From PowerShell in the folder containing `package.json`:
+
+```powershell
+npm install
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. For the production build:
+
+```powershell
+npm start
+```
+
+Open `http://127.0.0.1:8787`. Keep the PowerShell window open; `Ctrl+C` stops Nocturne.
+
+Source mode stores its sign-in in the project's `data\config.json`, separate from the installed
+app. The mock Plex server in `tools\mock-plex` is for development only. Never point a real Plex
+token at it.
 
 ---
 
 ## Privacy and safety
 
-- Nocturne's backend listens only on `127.0.0.1` by default. It is not exposed to the internet.
-- Your Plex token is stored in `data/config.json` and is excluded from Git.
-- `.env`, `data/`, `node_modules/`, `dist/`, and temporary tooling are excluded from the
-  repository.
-- Do not change `HOST` to `0.0.0.0` or forward port 8787 on your router without adding real
-  authentication. Nocturne 1.0 has no multi-user login of its own.
-- The included `tools/mock-plex` server is only for development. Never point a real Plex
-  account or token at it.
+- Nocturne's backend listens only on `127.0.0.1`. It is not exposed to the internet.
+- The installed app stores the Plex token in
+  `%LOCALAPPDATA%\Nocturne\data\config.json`; source mode uses `data\config.json`.
+- `.env`, `data\`, `node_modules\`, `dist\`, and temporary tooling are excluded from Git.
+- Nocturne has no analytics, ads, accounts, or cloud service. Plex requests go directly from your
+  PC to the Plex server you signed in to.
+- Do not change `HOST` to `0.0.0.0` or forward Nocturne's local port on your router without
+  adding real authentication. Nocturne has no multi-user login of its own.
 
 ---
 
@@ -425,7 +415,7 @@ media is damaged. It usually means the token was revoked or the Plex account pas
 - Read [README.md](README.md) for the full project and security documentation.
 - Once Nocturne works on your PC, the natural next step is a **TV mode** with large focus states
   and keyboard/D-pad navigation.
-- Android TV, Fire TV, Roku, Apple TV, Samsung Tizen, and LG webOS require separate packaged
-  apps. See the Smart TV roadmap in [README.md](README.md#smart-tv-roadmap--what-runs-where).
+- Android TV, Fire TV, Roku, Apple TV, Samsung Tizen, and LG webOS require separate packaged apps.
+  See the Smart TV roadmap in [README.md](README.md#smart-tv-roadmap--what-runs-where).
 
 Enjoy your private cinema.

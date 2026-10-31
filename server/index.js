@@ -5,6 +5,7 @@ import { cached, invalidateCache } from './cache.js'
 import {
   clearConnection,
   getCredentials,
+  getInstallInfo,
   getPaths,
   getPublicStatus,
   normalizeServerUrl,
@@ -152,6 +153,7 @@ app.get('/api/health', async (req, res) => {
   res.json({
     product: 'Nocturne',
     ...status,
+    install: getInstallInfo(),
     reachable,
     authError,
     connectionError,
