@@ -16,6 +16,7 @@ import { readZipArchive } from './zip.js'
  */
 
 const UPDATE_DIRECTORIES = ['server', 'dist', 'public', 'node_modules']
+const PACKAGE_ROOT_FILES = ['LICENSE']
 const REQUIRED_FILES = ['package.json', 'server/index.js', 'dist/index.html']
 const MAX_PACKAGE_BYTES = 512 * 1024 * 1024
 const DOWNLOAD_TIMEOUT_MS = 5 * 60 * 1000
@@ -195,8 +196,9 @@ function stagePackage(files, stagingDir) {
   let bytes = 0
 
   for (const [name, data] of files) {
-    const [top] = name.split('/')
-    if (!UPDATE_DIRECTORIES.includes(top)) continue
+    const [top, ...rest] = name.split('/')
+    if (rest.length === 0 && !PACKAGE_ROOT_FILES.includes(top)) continue
+    if (rest.length > 0 && !UPDATE_DIRECTORIES.includes(top)) continue
 
     const target = path.join(stagingDir, ...name.split('/'))
     if (!target.startsWith(`${stagingDir}${path.sep}`)) continue
@@ -227,6 +229,12 @@ function installFiles(stagingDir, root, manifest) {
     `${JSON.stringify(runtimeManifest(manifest), null, 2)}\n`,
     'utf8',
   )
+
+  // The license travels with the installed app, not just the repository.
+  const licensePath = path.join(stagingDir, 'LICENSE')
+  if (fs.existsSync(licensePath)) {
+    fs.copyFileSync(licensePath, path.join(root, 'LICENSE'))
+  }
 
   const manifestPath = path.join(root, 'install.json')
   const install = readJsonFile(manifestPath)

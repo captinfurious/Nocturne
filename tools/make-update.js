@@ -81,6 +81,10 @@ try {
   const files = [
     { name: 'package.json', data: fs.readFileSync(path.join(staging, 'package.json')) },
   ]
+  const licensePath = path.join(ROOT, 'LICENSE')
+  if (fs.existsSync(licensePath)) {
+    files.push({ name: 'LICENSE', data: fs.readFileSync(licensePath) })
+  }
   for (const directory of [...APP_DIRECTORIES, 'node_modules']) {
     const source = path.join(staging, directory)
     if (!fs.existsSync(source)) continue

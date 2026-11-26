@@ -352,6 +352,11 @@ foreach ($script in @('Uninstall-Nocturne.ps1', 'Stop-Nocturne.ps1')) {
     }
 }
 
+$projectLicense = Join-Path $SourceDir 'LICENSE'
+if (Test-Path -LiteralPath $projectLicense) {
+    Copy-Item -LiteralPath $projectLicense -Destination (Join-Path $InstallDir 'LICENSE') -Force
+}
+
 $runtimePackage = [ordered]@{
     name = 'nocturne-runtime'
     private = $true

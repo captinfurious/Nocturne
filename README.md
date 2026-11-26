@@ -6,11 +6,12 @@ distinct interface: a cinematic hero, a black-and-red top-navigation layout, hor
 rows, a ranked Top 10, My List, real resume progress, search, library browsing, title and season
 details, and an in-app player that streams straight from Plex.
 
-**Current version:** 1.3.0 — desktop and responsive web with the streaming redesign, My List,
+**Current version:** 1.4.0 — desktop and responsive web with the streaming redesign, My List,
 in-app playback with audio/subtitle tracks, Skip Intro, next-episode autoplay, continuous Home
 catalogs, optional LAN viewing from other devices on your own Wi-Fi, and a per-user,
-self-contained Windows app installer with a standalone launcher, optional login startup, and a
-private Node runtime when one is needed.
+self-contained Windows app installer with a standalone launcher, optional login startup, a
+private Node runtime when one is needed, and in-place updates that install a new version from
+Settings without downloading the app again.
 
 **New to Nocturne?** Follow the step-by-step **[download and Windows installation guide](TUTORIAL.md)**.
 
@@ -652,5 +653,13 @@ player and the `/api/player` session API are the reusable playback layer for tho
 
 ## License / attribution
 
-Nocturne is a personal project and is not affiliated with Plex. Plex, Plex Media Server, and the Plex
-logo are trademarks of Plex, Inc. Nocturne only talks to the Plex server you already run.
+Nocturne is released under the [MIT License](LICENSE). You may use, modify, and share it,
+including commercially, as long as the copyright notice and license text travel with it.
+Bundled and third-party work keeps its own license:
+
+- **Manrope** (the interface typeface, shipped as `@fontsource-variable/manrope`) is licensed
+  under the [SIL Open Font License 1.1](https://openfontlicense.org/).
+- **Node.js**, when the installer bundles a private runtime, is MIT licensed. Its license text is
+  copied beside the runtime as `runtime\NODE-LICENSE.txt`.
+- **Plex** is a trademark of Plex, Inc. Nocturne is a personal project, is not affiliated with
+  Plex, and only talks to the Plex server you already run.

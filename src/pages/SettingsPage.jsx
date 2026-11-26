@@ -710,7 +710,7 @@ export function SettingsPage() {
 
       <footer className="settings-footer">
         <span className="settings-footer__mark">✦</span>
-        <p>Nocturne {health?.install?.version || '1.3'} · A private cinema for the library you already own.</p>
+        <p>Nocturne {health?.install?.version || '1.4'} · A private cinema for the library you already own.</p>
         <span>Built for Plex</span>
       </footer>
     </div>
