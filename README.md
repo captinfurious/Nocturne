@@ -136,6 +136,12 @@ default and only accepts private network addresses. Settings that change the Ple
 mode are accepted only on the PC itself. Anyone on your Wi-Fi can browse and play while LAN mode is
 on, so leave it off on networks you do not trust and never port-forward the port.
 
+**Update Nocturne without reinstalling it:** open **Settings → Updates** in the app. Choose the
+`nocturne-update-<version>.zip` that came with the new version and click **Install update**.
+Nocturne replaces its server and interface in place, keeps your Plex sign-in, saved progress, and
+settings, and restarts itself. Save an update address once and future updates become one click.
+Update packages are produced in the project with `npm run package:update`.
+
 **Turn startup off:** run `windows\Install Nocturne.cmd` and answer **No** to the startup question.
 The installer also updates the app, keeps your Plex sign-in, and replaces the old shortcuts. Running
 `Start Nocturne.cmd` when the version is unchanged simply opens the app.
@@ -392,6 +398,8 @@ Nocturne/
 │  ├─ plex.js         Server-side Plex API client, image proxy, Plex Web deep links
 │  ├─ player.js       In-app playback sessions, direct streaming, HLS proxy, Plex progress
 │  ├─ nocturne.js     Plex → Nocturne normalization, home rows, search, details, libraries
+│  ├─ update.js       In-place app updates from a package, with version checks
+│  ├─ zip.js          Dependency-free ZIP reader used by the updater
 │  ├─ cache.js        Short-lived in-memory cache for Plex reads
 │  └─ config.js       Local data/config.json management; never exposed to the browser
 ├─ src/
@@ -419,6 +427,9 @@ Nocturne/
 
 ```text
 GET  /api/health
+GET  /api/update                 → current version, update address, and whether this copy can update itself
+POST /api/update/source          → save or clear the update package address
+POST /api/update/install         → install an update package (uploaded .zip or the saved address)
 POST /api/system/stop
 POST /api/system/restart
 GET  /api/libraries
@@ -456,6 +467,7 @@ Only the local frontend is intended to call these routes.
 | `npm run dev` | API + Vite with hot reload; open `http://127.0.0.1:5173` |
 | `npm run build` | Build the production interface into `dist/` |
 | `npm start` | Build, then serve Nocturne at `http://127.0.0.1:8787` |
+| `npm run package:update` | Build `release/nocturne-update-<version>.zip` for Settings → Updates |
 | `npm run mock:plex` | Start the development test Plex server on port 32499 (advanced) |
 
 ### Advanced `.env` fallback

@@ -58,6 +58,44 @@ function plexUrl(pathWithQuery) {
   return url
 }
 
+// Plex ignores audioStreamID/subtitleStreamID on the HLS request more often
+// than it honours them: its transcoder resolves both through the streams saved
+// on the part (that is what Plex's own clients update). Writing the choice here
+// before the transcode starts is what actually switches the track.
+async function savePlexStreamSelection(part, { audioStreamId = null, subtitleStreamId = null } = {}) {
+  const partId = String(part?.id ?? '')
+  if (!/^\d+$/.test(partId)) return
+
+  const query = new URLSearchParams({ allParts: '0' })
+  if (/^\d+$/.test(String(audioStreamId ?? ''))) query.set('audioStreamID', String(audioStreamId))
+  if (/^\d+$/.test(String(subtitleStreamId ?? ''))) {
+    query.set('subtitleStreamID', String(subtitleStreamId))
+  }
+  if (!query.has('audioStreamID') && !query.has('subtitleStreamID')) return
+
+  const { token, clientIdentifier } = requireCredentials()
+
+  try {
+    const response = await fetch(plexUrl(`/library/parts/${partId}?${query.toString()}`), {
+      method: 'PUT',
+      headers: plexHeaders(clientIdentifier, token),
+      signal: AbortSignal.timeout(6000),
+    })
+    if (!response.ok) {
+      console.warn(
+        `[Nocturne] Plex did not save the chosen tracks for part ${partId} (HTTP ${response.status}).`,
+      )
+    }
+  } catch (error) {
+    // Saving the preference must never block playback; the transcode request
+    // still carries the stream IDs as a second attempt.
+    console.warn(
+      `[Nocturne] Could not save the chosen tracks for part ${partId}.`,
+      error?.message || '',
+    )
+  }
+}
+
 function playbackHeaders(playbackSessionId) {
   const { token, clientIdentifier } = requireCredentials()
   return {
@@ -142,6 +180,9 @@ function normalizeStreams(part) {
         title: stream.title || null,
         displayTitle: streamLabel(stream, `Audio ${audio.length + 1}`),
         channels: Number(stream.channels) || null,
+        // `default` is the file's own flag; `selected` is the choice saved for
+        // this user, which Nocturne itself writes when a track is switched.
+        default: Boolean(stream.default),
         selected: Boolean(stream.selected),
       })
       continue
@@ -355,9 +396,18 @@ function transcodeStartPath(session) {
   if (session.audioStreamId) {
     query.set('audioStreamID', session.audioStreamId)
   }
+  if (session.audioChanged) {
+    // The chosen track may be AC3, EAC3, DTS or TrueHD, which browsers cannot
+    // decode. Copy the video but always transcode the audio to a safe codec.
+    query.set('directStreamAudio', '0')
+  }
   if (session.burnSubtitles && session.subtitleStreamId) {
     query.set('subtitleStreamID', session.subtitleStreamId)
     query.set('subtitles', 'burn')
+  } else {
+    // Text subtitles are fetched and drawn by Nocturne. This stops Plex from
+    // auto-selecting a different track and burning that one in instead.
+    query.set('subtitles', 'none')
   }
   if (session.offsetMs >= 1000) {
     query.set('offset', String(Math.floor(session.offsetMs / 1000)))
@@ -431,9 +481,13 @@ export async function startPlayback(
   const requestedSubtitleId = /^\d+$/.test(String(subtitleStreamId ?? ''))
     ? String(subtitleStreamId)
     : null
-  const defaultAudio = streams.audio.find((track) => track.selected) || streams.audio[0] || null
-  const selectedAudio = streams.audio.find((track) => track.id === requestedAudioId)
-    || defaultAudio
+  const fileDefaultAudio = streams.audio.find((track) => track.default)
+    || streams.audio[0]
+    || null
+  const requestedAudio = streams.audio.find((track) => track.id === requestedAudioId) || null
+  const selectedAudio = requestedAudio
+    || streams.audio.find((track) => track.selected)
+    || fileDefaultAudio
   const selectedSubtitle = streams.subtitles.find(
     (track) => track.id === requestedSubtitleId,
   ) || null
@@ -442,13 +496,25 @@ export async function startPlayback(
   // when that conversion fails (or when it must survive a previous burn-in).
   const burnSubtitles = Boolean(selectedSubtitle)
     && (selectedSubtitle.isImage || Boolean(forceBurnSubtitles))
+  // Direct play hands the file to the browser, which always plays the file's
+  // own default audio, so any other selection needs Plex to remux it.
   const audioChanged = Boolean(
-    requestedAudioId && defaultAudio && requestedAudioId !== defaultAudio.id,
+    selectedAudio && fileDefaultAudio && selectedAudio.id !== fileDefaultAudio.id,
   )
   const directPlayable = canDirectPlay(media, part)
   const duration = Math.max(0, Number(raw.duration) || Number(media.duration) || 0)
   const offset = clampOffset(offsetMs, duration)
   const direct = directPlayable && !burnSubtitles && !audioChanged
+
+  // Save the user's menu choice on the Plex part so the transcoder uses it.
+  // Only explicit choices are written, so plain playback never rewrites the
+  // library's own default tracks.
+  if (requestedAudio || (burnSubtitles && selectedSubtitle)) {
+    await savePlexStreamSelection(part, {
+      audioStreamId: requestedAudio?.id || null,
+      subtitleStreamId: burnSubtitles ? selectedSubtitle?.id || null : null,
+    })
+  }
 
   const [fallbackMarkers, nextEpisode] = await Promise.all([
     Array.isArray(raw.Marker) && raw.Marker.length
@@ -483,6 +549,7 @@ export async function startPlayback(
     remuxVideo: canRemuxVideo(media),
     streams,
     audioStreamId: selectedAudio?.id || null,
+    audioChanged,
     subtitleStreamId: selectedSubtitle?.id || null,
     burnSubtitles,
     markers,
@@ -697,10 +764,13 @@ export async function streamSubtitle(req, res, id, streamId) {
     )
     throw error
   }
-  const body = session.mode === 'hls' ? shiftWebVtt(vtt, session.offsetMs) : vtt
+  // Plex returns the track on the file's own timeline, which is the same clock
+  // the player reports positions in. Shifting the cues to the transcode's start
+  // made every caption fall outside the current position, so they never showed
+  // on a resumed or transcoded title.
   res.setHeader('Content-Type', 'text/vtt; charset=utf-8')
   res.setHeader('Cache-Control', 'private, max-age=3600')
-  res.send(body)
+  res.send(vtt)
 }
 
 export async function streamMaster(req, res, id) {
@@ -741,66 +811,6 @@ export async function streamMaster(req, res, id) {
   res.setHeader('Content-Type', 'application/vnd.apple.mpegurl')
   res.setHeader('Cache-Control', 'no-store')
   res.send(rewritePlaylist(playlist, response.url || plexUrl(startPath).toString(), session))
-}
-
-function formatVttTime(ms) {
-  const total = Math.max(0, Math.round(ms))
-  const hours = Math.floor(total / 3_600_000)
-  const minutes = Math.floor((total % 3_600_000) / 60_000)
-  const seconds = Math.floor((total % 60_000) / 1000)
-  const millis = total % 1000
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(millis).padStart(3, '0')}`
-}
-
-function parseVttTimestamp(value) {
-  const match = String(value).trim().match(/^(?:(\d{1,3}):)?(\d{1,2}):(\d{2})[.,](\d{3})$/)
-  if (!match) return null
-  const hours = Number(match[1] || 0)
-  const minutes = Number(match[2])
-  const seconds = Number(match[3])
-  const millis = Number(match[4])
-  return ((hours * 60 + minutes) * 60 + seconds) * 1000 + millis
-}
-
-function shiftWebVtt(text, offsetMs) {
-  const offset = Math.max(0, Math.round(Number(offsetMs) || 0))
-  const normalized = String(text)
-    .replace(/^\uFEFF/, '')
-    .replace(/\r\n?/g, '\n')
-
-  if (!offset) return normalized.endsWith('\n') ? normalized : `${normalized}\n`
-
-  return normalized
-    .replace(/^X-TIMESTAMP-MAP=.*$/gm, '')
-    .split(/\n{2,}/)
-    .map((block) => {
-      const trimmed = block.trimStart()
-      if (trimmed.startsWith('WEBVTT')) return block.trimEnd()
-      if (/^(NOTE|STYLE|REGION)\b/.test(trimmed)) return block
-
-      // WebVTT permits both HH:MM:SS.mmm and MM:SS.mmm timestamps. Plex uses
-      // both depending on the source file, so parse either instead of silently
-      // leaving cues on the original (unshifted) timeline.
-      const match = block.match(
-        /^((?:\d{1,3}:)?\d{1,2}:\d{2}[.,]\d{3})\s+-->\s+((?:\d{1,3}:)?\d{1,2}:\d{2}[.,]\d{3})([^\n]*)$/m,
-      )
-      if (!match) return block
-
-      const start = parseVttTimestamp(match[1])
-      const end = parseVttTimestamp(match[2])
-      if (start === null || end === null) return block
-
-      const shiftedStart = start - offset
-      const shiftedEnd = end - offset
-      if (shiftedEnd <= 0) return null
-
-      const timing = `${formatVttTime(Math.max(0, shiftedStart))} --> ${formatVttTime(shiftedEnd)}${match[3] || ''}`
-      return block.replace(match[0], timing)
-    })
-    .filter(Boolean)
-    .join('\n\n')
-    .trimEnd()
-    .concat('\n')
 }
 
 function validateHlsTarget(value) {

@@ -9,14 +9,16 @@ export class NocturneError extends Error {
   }
 }
 
-async function request(path, { signal, method = 'GET', body } = {}) {
+async function request(path, { signal, method = 'GET', body, raw } = {}) {
   let response
   try {
     response = await fetch(path, {
       method,
       signal,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
+      headers: raw
+        ? { 'Content-Type': 'application/zip' }
+        : body ? { 'Content-Type': 'application/json' } : undefined,
+      body: raw || (body ? JSON.stringify(body) : undefined),
     })
   } catch (error) {
     if (error.name === 'AbortError') throw error
@@ -73,6 +75,29 @@ export const api = {
     return request('/api/network/lan', {
       method: 'POST',
       body: { enabled: Boolean(enabled) },
+      signal,
+    })
+  },
+
+  updateInfo(signal) {
+    return request('/api/update', { signal })
+  },
+
+  setUpdateSource(url, signal) {
+    return request('/api/update/source', {
+      method: 'POST',
+      body: { url: url || '' },
+      signal,
+    })
+  },
+
+  installUpdate({ file, url } = {}, signal) {
+    if (file) {
+      return request('/api/update/install', { method: 'POST', raw: file, signal })
+    }
+    return request('/api/update/install', {
+      method: 'POST',
+      body: { url: url || '' },
       signal,
     })
   },

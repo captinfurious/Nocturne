@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Check,
   CircleAlert,
+  Download,
   ExternalLink,
   Laptop,
   LoaderCircle,
@@ -13,6 +14,7 @@ import {
   Server,
   ShieldCheck,
   Unplug,
+  Upload,
   Wifi,
   WifiOff,
   X,
@@ -46,6 +48,26 @@ export function SettingsPage() {
   const [problem, setProblem] = useState(null)
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const [confirmStopServer, setConfirmStopServer] = useState(false)
+  const [update, setUpdate] = useState(null)
+  const [updateFile, setUpdateFile] = useState(null)
+  const [updateAddress, setUpdateAddress] = useState('')
+  const updateFileRef = useRef(null)
+
+  useEffect(() => {
+    let cancelled = false
+    api.updateInfo()
+      .then((info) => {
+        if (cancelled) return
+        setUpdate(info)
+        setUpdateAddress(info?.source?.url || '')
+      })
+      .catch(() => {
+        if (!cancelled) setUpdate(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const run = async (action, task, successMessage) => {
     setBusy(action)
@@ -122,6 +144,43 @@ export function SettingsPage() {
       window.setTimeout(() => {
         window.location.href = result.controlUrl
       }, 450)
+    } catch (failure) {
+      setProblem(failure)
+      setBusy(null)
+    }
+  }
+
+  const saveUpdateAddress = () => run('update-source', async () => {
+    const result = await api.setUpdateSource(updateAddress.trim())
+    setUpdate((current) => (current ? { ...current, source: result.source } : current))
+    setUpdateAddress(result.source?.url || '')
+    return result
+  }, 'Update address saved. Nocturne can install packages from it from now on.')
+
+  const installUpdate = async () => {
+    if (!updateFile && !updateAddress.trim()) return
+    setBusy('update')
+    setProblem(null)
+    setNotice('Installing the update. Nocturne restarts when it is done…')
+
+    try {
+      const result = await api.installUpdate(
+        updateFile ? { file: updateFile } : { url: updateAddress.trim() },
+      )
+      setUpdateFile(null)
+      if (updateFileRef.current) updateFileRef.current.value = ''
+      setNotice(`Nocturne ${result.toVersion} is installed. Restarting…`)
+
+      const returned = await waitForServer(60_000)
+      if (returned) {
+        window.location.reload()
+        return
+      }
+
+      setNotice(
+        `Nocturne ${result.toVersion} is installed. Close and open Nocturne again to use it.`,
+      )
+      setBusy(null)
     } catch (failure) {
       setProblem(failure)
       setBusy(null)
@@ -402,8 +461,8 @@ export function SettingsPage() {
                 </div>
               </dl>
               <p className="settings-card__footnote">
-                To update, run the installer again. Remove Nocturne with
-                {' '}<strong>Uninstall Nocturne</strong> in the Start Menu. Your Plex
+                Install new versions from the Updates card below. Remove Nocturne
+                with {' '}<strong>Uninstall Nocturne</strong> in the Start Menu. Your Plex
                 token in {health.install.dataDir || 'your app data folder'} is kept until
                 you choose to delete app data during uninstall.
               </p>
@@ -507,6 +566,97 @@ export function SettingsPage() {
             <p className="settings-card__footnote">
               Server controls are available in the installed Nocturne app. When running
               from source with <code>npm run dev</code>, stop it from that terminal.
+            </p>
+          )}
+        </section>
+        <section className="settings-card settings-card--updates">
+          <div className="settings-card__heading">
+            <span className="settings-icon"><Download size={19} /></span>
+            <div>
+              <p className="eyebrow">Updates</p>
+              <h2>Keep Nocturne current</h2>
+            </div>
+            <span className="settings-card__label">
+              {update?.version ? `v${update.version}` : 'Version unknown'}
+            </span>
+          </div>
+          <p className="settings-card__copy">
+            Install a newer Nocturne in place. Choose the update package that came
+            with the new version, or save its address once and update from there
+            afterwards. Your Plex sign-in, saved progress, and settings stay exactly
+            as they are.
+          </p>
+          {update?.canInstall ? (
+            <>
+              <div className="settings-actions">
+                <label className="button button--secondary button--small settings-update-pick">
+                  <Upload size={15} />
+                  {updateFile
+                    ? (updateFile.name.length > 28
+                      ? `${updateFile.name.slice(0, 26)}…`
+                      : updateFile.name)
+                    : 'Choose update package'}
+                  <input
+                    ref={updateFileRef}
+                    type="file"
+                    accept=".zip,application/zip,application/x-zip-compressed"
+                    onChange={(event) => {
+                      setUpdateFile(event.target.files?.[0] || null)
+                      setNotice(null)
+                      setProblem(null)
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="button button--primary button--small"
+                  onClick={installUpdate}
+                  disabled={Boolean(busy) || (!updateFile && !updateAddress.trim())}
+                >
+                  {busy === 'update'
+                    ? <LoaderCircle size={15} className="spin" />
+                    : <Download size={15} />}
+                  Install update
+                </button>
+              </div>
+              <div className="settings-update-source">
+                <label htmlFor="update-address">
+                  Update address <small>optional</small>
+                </label>
+                <div>
+                  <input
+                    id="update-address"
+                    type="url"
+                    inputMode="url"
+                    spellCheck={false}
+                    placeholder="https://example.com/nocturne-update.zip"
+                    value={updateAddress}
+                    onChange={(event) => setUpdateAddress(event.target.value)}
+                    disabled={Boolean(busy)}
+                  />
+                  <button
+                    type="button"
+                    className="button button--ghost button--small"
+                    onClick={saveUpdateAddress}
+                    disabled={Boolean(busy) || updateAddress.trim() === (update?.source?.url || '')}
+                  >
+                    {busy === 'update-source'
+                      ? <LoaderCircle size={15} className="spin" />
+                      : <Check size={15} />}
+                    Save
+                  </button>
+                </div>
+              </div>
+              <p className="settings-card__footnote">
+                Update packages are built with <code>npm run package:update</code> in
+                the Nocturne project. Nocturne restarts itself once an update is
+                installed.
+              </p>
+            </>
+          ) : (
+            <p className="settings-card__footnote">
+              {update?.reason
+                || 'Nocturne checks how this copy can install updates when the page loads.'}
             </p>
           )}
         </section>

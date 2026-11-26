@@ -1050,6 +1050,70 @@
   gap: 8px;
 }
 
+.settings-update-pick {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.settings-update-pick input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.settings-update-source {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.settings-update-source > label {
+  color: var(--faint);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.settings-update-source > label small {
+  margin-left: 2px;
+  color: var(--faint);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+
+.settings-update-source > div {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-update-source input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--text);
+  font-size: 11.5px;
+}
+
+.settings-update-source input:focus-visible {
+  border-color: var(--line-strong);
+  outline: none;
+}
+
+.settings-card--updates .settings-card__label {
+  margin-left: auto;
+  padding-top: 6px;
+  white-space: nowrap;
+}
+
 .settings-card__copy {
   color: var(--muted);
   font-size: 11.5px;

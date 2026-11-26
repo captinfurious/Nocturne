@@ -122,6 +122,35 @@ body.is-player-open {
   color: #000000;
 }
 
+.player-icon-button--seek {
+  width: 46px;
+  height: 46px;
+}
+
+/* The circular arrow stays the button shape; the jump length sits inside it so
+   the control reads on its own without hovering for the tooltip. */
+.player-seek-icon {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  line-height: 0;
+}
+
+.player-seek-icon__amount {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-top: 0.5px;
+  color: currentColor;
+  font-size: 9px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  pointer-events: none;
+}
+
 .player-heading {
   flex: 1;
   min-width: 0;

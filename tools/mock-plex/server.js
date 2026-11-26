@@ -336,6 +336,22 @@ app.get('/tv/api/v2/user', authorize, (req, res) => {
   res.json({ username: 'nocturne_tester', title: 'Nocturne Tester' })
 })
 
+// Plex saves the audio/subtitle a user picked for a part here; Nocturne calls
+// this before starting a transcode so the chosen track is the one used.
+app.put('/library/parts/:id', authorize, (req, res) => {
+  const audio = String(req.query.audioStreamID ?? '')
+  const subtitle = String(req.query.subtitleStreamID ?? '')
+  const invalid = (value) => value !== '' && !/^\d+$/.test(value)
+  if (invalid(audio) || invalid(subtitle)) {
+    res.status(400).json({ error: 'One of the audio or subtitle streams does not belong to this part.' })
+    return
+  }
+  console.log(
+    `[mock-plex] part ${req.params.id} selection: audio ${audio || 'unchanged'}, subtitles ${subtitle || 'unchanged'}`,
+  )
+  res.json({})
+})
+
 app.get('/library/parts/:id/:name', authorize, (req, res) => {
   if (req.params.id !== '104' || !fs.existsSync(SAMPLE_VIDEO)) {
     res.status(404).json({ error: 'Mock media file not found.' })

@@ -34,6 +34,9 @@ function formatClock(ms) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
+// How far the rewind and fast-forward buttons (and the arrow keys) jump.
+const SKIP_SECONDS = 10
+
 function storedVolume() {
   try {
     const raw = window.localStorage.getItem('nocturne.volume')
@@ -120,7 +123,10 @@ export function PlayerOverlay({
   const videoRef = useRef(null)
   const hlsRef = useRef(null)
   const sessionRef = useRef(session)
-  const firstTimeRef = useRef(0)
+  // Plex's HLS transcode keeps the source timestamps when it starts away from
+  // the beginning, so video.currentTime can already be the absolute position.
+  // timeBaseRef is the number of seconds to add to currentTime to make it so.
+  const timeBaseRef = useRef(0)
   const hasStartedRef = useRef(false)
   const timeRef = useRef(session?.offsetMs || 0)
   const hideTimerRef = useRef(null)
@@ -151,7 +157,9 @@ export function PlayerOverlay({
   const audioTracks = session?.streams?.audio || []
   const subtitleTracks = session?.streams?.subtitles || []
   const selectedSubtitle = subtitleTracks.find((track) => track.id === selectedSubtitleId) || null
-  const selectedSubtitleUrl = selectedSubtitle && !selectedSubtitle.isImage
+  // Only text tracks Plex is not already burning into the picture are drawn
+  // here, otherwise the same captions appear twice.
+  const selectedSubtitleUrl = selectedSubtitle && !selectedSubtitle.isImage && !session?.burnSubtitles
     ? selectedSubtitle.url
     : null
   const introMarker = session?.markers?.intro || null
@@ -174,6 +182,26 @@ export function PlayerOverlay({
     ? episodeLabel(item)
     : [item?.year, item?.contentRating].filter(Boolean).join(' · ')
 
+  // Work out which timeline this HLS playlist uses instead of assuming one.
+  // From a start offset Plex keeps the source timestamps, so currentTime is
+  // already absolute; some servers reset the clock and start near zero.
+  // Reading the wrong one doubled the reported position, and the next track
+  // switch or seek then restarted the stream at the wrong place.
+  const syncTimeBase = useCallback(() => {
+    const video = videoRef.current
+    const currentSession = sessionRef.current
+    if (!video || !currentSession) return
+
+    if (currentSession.mode === 'direct') {
+      timeBaseRef.current = 0
+      return
+    }
+
+    const startAt = Math.max(0, Number(currentSession.offsetMs) || 0) / 1000
+    const current = Math.max(0, Number(video.currentTime) || 0)
+    timeBaseRef.current = startAt > 2 && Math.abs(current - startAt) <= 5 ? 0 : startAt
+  }, [])
+
   const readTime = useCallback(() => {
     const video = videoRef.current
     const currentSession = sessionRef.current
@@ -181,9 +209,7 @@ export function PlayerOverlay({
 
     const value = currentSession.mode === 'direct'
       ? Math.round(video.currentTime * 1000)
-      : Math.round(
-        currentSession.offsetMs + Math.max(0, video.currentTime - firstTimeRef.current) * 1000,
-      )
+      : Math.round((video.currentTime + timeBaseRef.current) * 1000)
     timeRef.current = value
     return value
   }, [])
@@ -477,7 +503,7 @@ export function PlayerOverlay({
 
     let cancelled = false
     let hls = null
-    firstTimeRef.current = 0
+    timeBaseRef.current = 0
 
     const playQuietly = () => {
       const attempt = video.play()
@@ -489,7 +515,7 @@ export function PlayerOverlay({
     }
 
     const onLoadedMetadata = () => {
-      firstTimeRef.current = video.currentTime || 0
+      syncTimeBase()
       if (session.mode === 'direct' && session.offsetMs > 1000) {
         const target = session.offsetMs / 1000
         const max = Number.isFinite(video.duration) ? Math.max(0, video.duration - 1) : target
@@ -559,7 +585,7 @@ export function PlayerOverlay({
       video.removeAttribute('src')
       video.load()
     }
-  }, [session])
+  }, [session, syncTimeBase])
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -586,12 +612,12 @@ export function PlayerOverlay({
           break
         case 'ArrowLeft':
           event.preventDefault()
-          seekBy(-10_000)
+          seekBy(-SKIP_SECONDS * 1000)
           revealControls()
           break
         case 'ArrowRight':
           event.preventDefault()
-          seekBy(10_000)
+          seekBy(SKIP_SECONDS * 1000)
           revealControls()
           break
         case 'j':
@@ -701,12 +727,9 @@ export function PlayerOverlay({
           }}
           onDoubleClick={toggleFullscreen}
           onTimeUpdate={() => {
-            if (!hasStartedRef.current && videoRef.current && session?.mode === 'hls' && session.offsetMs > 1000) {
-              const current = videoRef.current.currentTime
-              if (Math.abs(current - session.offsetMs / 1000) < 3) {
-                firstTimeRef.current = current
-              }
-            }
+            // Keep checking until playback really starts: hls.js can report 0
+            // first and then jump to the timestamp the segment carries.
+            if (!hasStartedRef.current) syncTimeBase()
             const next = readTime()
             setTimeMs(next)
           }}
@@ -717,7 +740,7 @@ export function PlayerOverlay({
             const end = video.buffered.length ? video.buffered.end(video.buffered.length - 1) : 0
             const absolute = currentSession.mode === 'direct'
               ? end * 1000
-              : currentSession.offsetMs + Math.max(0, end - firstTimeRef.current) * 1000
+              : (end + timeBaseRef.current) * 1000
             setBufferedMs(Math.round(absolute))
           }}
           onWaiting={() => setLoading(true)}
@@ -964,21 +987,27 @@ export function PlayerOverlay({
               </button>
               <button
                 type="button"
-                className="player-icon-button"
-                onClick={() => seekBy(-10_000)}
-                aria-label="Back 10 seconds"
-                title="Back 10 seconds (←)"
+                className="player-icon-button player-icon-button--seek"
+                onClick={() => seekBy(-SKIP_SECONDS * 1000)}
+                aria-label={`Back ${SKIP_SECONDS} seconds`}
+                title={`Back ${SKIP_SECONDS} seconds (←)`}
               >
-                <RotateCcw size={18} />
+                <span className="player-seek-icon" aria-hidden="true">
+                  <RotateCcw size={23} strokeWidth={1.7} />
+                  <span className="player-seek-icon__amount">{SKIP_SECONDS}</span>
+                </span>
               </button>
               <button
                 type="button"
-                className="player-icon-button"
-                onClick={() => seekBy(10_000)}
-                aria-label="Forward 10 seconds"
-                title="Forward 10 seconds (→)"
+                className="player-icon-button player-icon-button--seek"
+                onClick={() => seekBy(SKIP_SECONDS * 1000)}
+                aria-label={`Forward ${SKIP_SECONDS} seconds`}
+                title={`Forward ${SKIP_SECONDS} seconds (→)`}
               >
-                <RotateCw size={18} />
+                <span className="player-seek-icon" aria-hidden="true">
+                  <RotateCw size={23} strokeWidth={1.7} />
+                  <span className="player-seek-icon__amount">{SKIP_SECONDS}</span>
+                </span>
               </button>
               <span className="player-time">
                 {formatClock(displayTime)}

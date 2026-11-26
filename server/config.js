@@ -31,6 +31,7 @@ function emptyConfig() {
     server: null,
     account: null,
     network: { lanEnabled: false },
+    updates: { sourceUrl: null },
     createdAt: nowIso(),
     updatedAt: nowIso(),
   }
@@ -51,6 +52,11 @@ export function readConfig() {
         ...emptyConfig().network,
         ...(parsed.network && typeof parsed.network === 'object' ? parsed.network : {}),
         lanEnabled: Boolean(parsed.network?.lanEnabled),
+      },
+      updates: {
+        ...emptyConfig().updates,
+        ...(parsed.updates && typeof parsed.updates === 'object' ? parsed.updates : {}),
+        sourceUrl: typeof parsed.updates?.sourceUrl === 'string' ? parsed.updates.sourceUrl : null,
       },
     }
   } catch (error) {

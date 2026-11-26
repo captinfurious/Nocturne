@@ -25,6 +25,7 @@ import {
 } from './nocturne.js'
 import { fetchPlexImage, getLibraries, plexWebUrl, probePlexServer } from './plex.js'
 import { PlexError, checkPin, createPin, discoverPlexServer } from './plexAuth.js'
+import { getUpdateInfo, installUpdate, setUpdateSource } from './update.js'
 import {
   progressPlayback,
   startPlayback,
@@ -176,6 +177,8 @@ app.use('/api', (req, res, next) => {
     '/api/network/lan',
     '/api/system/stop',
     '/api/system/restart',
+    '/api/update/source',
+    '/api/update/install',
   ])
   const requestPath = String(req.originalUrl || req.url).split('?')[0]
   if (localOnlyWrites.has(requestPath) && !isLocalMachineAddress(clientAddress(req))) {
@@ -418,6 +421,52 @@ app.post('/api/system/restart', (req, res) => {
       })
     }, 250)
   })
+})
+
+app.get('/api/update', (req, res) => {
+  res.json(getUpdateInfo())
+})
+
+app.post('/api/update/source', (req, res) => {
+  requireLocalClient(req)
+  const sourceUrl = setUpdateSource(typeof req.body?.url === 'string' ? req.body.url : null)
+  res.json({ source: { url: sourceUrl, configured: Boolean(sourceUrl) } })
+})
+
+// An update package is a ZIP archive, not JSON, so this route reads the raw
+// body instead of going through the small JSON parser used elsewhere.
+const updatePackageBody = express.raw({
+  type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
+  limit: '512mb',
+})
+
+app.post('/api/update/install', updatePackageBody, async (req, res) => {
+  requireLocalClient(req)
+
+  const upload = Buffer.isBuffer(req.body) && req.body.length ? req.body : null
+  const url = !upload && typeof req.body?.url === 'string' ? req.body.url : null
+  const result = await installUpdate({ buffer: upload, url })
+
+  // The installed app runs under the control server, which restarts the app on
+  // the new files. Source mode has no supervisor, so it asks for a restart
+  // instead of silently serving the old code.
+  const restarting = CONTROL_MANAGED
+  res.json({
+    ok: true,
+    ...result,
+    restarting,
+    controlUrl: restarting ? CONTROL_URL : null,
+  })
+
+  if (restarting) {
+    res.on('finish', () => {
+      setTimeout(() => {
+        requestControl('restart').catch((error) => {
+          console.warn('[Nocturne] Could not restart after the update:', error.message)
+        })
+      }, 400)
+    })
+  }
 })
 
 app.get('/api/libraries', async (req, res) => {
