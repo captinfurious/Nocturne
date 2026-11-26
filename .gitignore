@@ -6,6 +6,7 @@ data/
 .env.*.local
 .tools/
 .freebuff/
-release/
+release/*
+!release/*.zip
 *.log
 .DS_Store
